@@ -16,7 +16,7 @@ public class Sounds {
         
         // 2. Definir la ruta de tu música (¡Cambia esto por tu ruta real!)
         // Ejemplo en Windows: "C:\\Users\\TuUsuario\\Music"
-        String rutaMusica = "C:\\Users\\barri\\Desktop\\musica prueba"; 
+        String rutaMusica = "D:\\musica prueba"; 
         
         System.out.println("Leyendo archivos desde: " + rutaMusica);
         lector.leerCarpetaRecursivamente(rutaMusica);

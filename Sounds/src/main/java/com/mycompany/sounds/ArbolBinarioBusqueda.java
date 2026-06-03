@@ -167,4 +167,8 @@ private NodoArbol raiz;
         System.out.println("No se encontró la canción para modificar.");
         return false;
     }
+    // Metodo para obtener la raiz del arbol y poder exportarlo
+    public NodoArbol getRaiz(){
+        return raiz;
+    }
     }

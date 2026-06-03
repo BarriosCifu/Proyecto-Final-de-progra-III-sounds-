@@ -73,4 +73,7 @@ public class ListaSimple {
     public int getTamaño() {
         return tamaño;
     }
+    public NodoLista getCabeza(){
+        return cabeza;
+    }
 }

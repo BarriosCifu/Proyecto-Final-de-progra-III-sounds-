@@ -7,5 +7,6 @@ com\mycompany\sounds\ListaSimple.class
 com\mycompany\sounds\Cola.class
 com\mycompany\sounds\NodoLista.class
 com\mycompany\sounds\Sounds.class
+com\mycompany\sounds\ArbolBinarioBusqueda.class
 com\mycompany\sounds\Cancion.class
 com\mycompany\sounds\Pila.class

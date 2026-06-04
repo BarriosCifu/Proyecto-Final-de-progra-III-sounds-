@@ -12,7 +12,6 @@ public class GeneradorEstadisticas {
             System.out.println("La biblioteca está vacía. No hay estadísticas para mostrar.");
             return;
         }
-
         System.out.println("\n--- ESTADÍSTICAS DE LA BIBLIOTECA ---");
         System.out.println("Total de canciones: " + biblioteca.getTamaño());
         System.out.println("Tamaño total en disco: " + calcularTamanoTotal(biblioteca) + " MB");

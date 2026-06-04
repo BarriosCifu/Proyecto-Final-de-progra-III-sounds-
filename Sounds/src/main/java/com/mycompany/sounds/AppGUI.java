@@ -1,5 +1,6 @@
 
 package com.mycompany.sounds;
+
 import java.io.File;
 import java.util.List;
 import javafx.application.Application;
@@ -20,9 +21,14 @@ import javafx.stage.Stage;
 
 public class AppGUI extends Application {
 
-    // Variables globales para poder usarlas en toda la clase
+    // Variables globales
     private TableView<Cancion> tablaCanciones;
     private ObservableList<Cancion> listaObservableCanciones;
+    
+    // Reproductor, canción actual y nuestra nueva "bandera" de estado
+    private Reproductor reproductor = new Reproductor();
+    private Cancion cancionActual = null;
+    private boolean estaReproduciendo = false; // <-- Controla el estado del botón
 
     @Override
     public void start(Stage escenarioPrincipal) {
@@ -66,48 +72,69 @@ public class AppGUI extends Application {
         
         panelCentral.getChildren().addAll(tituloCentral, tablaCanciones);
 
-        // --- 3. PANEL INFERIOR ---
-        HBox barraReproduccion = new HBox(20);
+        // --- 3. PANEL INFERIOR (Controles) ---
+        HBox barraReproduccion = new HBox(30); // Aumenté un poco el espacio para que respire
         barraReproduccion.setPrefHeight(90);
         barraReproduccion.setAlignment(Pos.CENTER);
         barraReproduccion.setStyle("-fx-background-color: #181818; -fx-border-color: #282828; -fx-border-width: 1 0 0 0;");
         
         Button btnAnterior = new Button("⏮");
-        Button btnPlay = new Button("▶ Play");
-        Button btnPausa = new Button("⏸ Pausa");
+        Button btnPlayPausa = new Button("▶ Play"); // ¡Nuestro nuevo botón unificado!
         Button btnSiguiente = new Button("⏭");
         
-        String estiloBotones = "-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 16px; -fx-cursor: hand;";
+        String estiloBotones = "-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 18px; -fx-cursor: hand;";
         btnAnterior.setStyle(estiloBotones);
-        btnPlay.setStyle(estiloBotones + "-fx-font-size: 20px;");
-        btnPausa.setStyle(estiloBotones + "-fx-font-size: 20px;");
         btnSiguiente.setStyle(estiloBotones);
         
-        barraReproduccion.getChildren().addAll(btnAnterior, btnPlay, btnPausa, btnSiguiente);
-
-        // --- EVENTOS (La magia sucede aquí) ---
+        // Le damos un ancho mínimo al Play para que al cambiar a "Pausa" los otros botones no se muevan
+        btnPlayPausa.setStyle(estiloBotones + "-fx-font-size: 22px; -fx-min-width: 110px;"); 
         
-        // Acción del botón Cargar Música
+        barraReproduccion.getChildren().addAll(btnAnterior, btnPlayPausa, btnSiguiente);
+
+        // --- EVENTOS DE INTERFAZ ---
+        
+        // 1. Al seleccionar una canción en la tabla
+        tablaCanciones.getSelectionModel().selectedItemProperty().addListener((observable, viejaSeleccion, nuevaSeleccion) -> {
+            if (nuevaSeleccion != null) {
+                cancionActual = nuevaSeleccion;
+            }
+        });
+        
+        // 2. Botón Cargar Música
         btnCargarMusica.setOnAction(evento -> {
             DirectoryChooser selectorDirectorio = new DirectoryChooser();
             selectorDirectorio.setTitle("Selecciona la carpeta con tu música");
-            
-            // Mostrar la ventana para elegir carpeta
             File carpetaSeleccionada = selectorDirectorio.showDialog(escenarioPrincipal);
             
             if (carpetaSeleccionada != null) {
-                System.out.println("Carpeta seleccionada: " + carpetaSeleccionada.getAbsolutePath());
-                
-                // Usar tu clase LectorArchivos para procesar los MP3
                 LectorArchivos lector = new LectorArchivos();
                 lector.leerCarpetaRecursivamente(carpetaSeleccionada.getAbsolutePath());
                 List<Cancion> cancionesLeidas = lector.getCancionesCargadas();
                 
-                // Convertir la lista normal a una lista que la tabla pueda entender y mostrar
                 listaObservableCanciones = FXCollections.observableArrayList(cancionesLeidas);
                 tablaCanciones.setItems(listaObservableCanciones);
-                
-                System.out.println("¡Se cargaron " + cancionesLeidas.size() + " canciones en la tabla!");
+            }
+        });
+        
+        // 3. Botón Play / Pausa (La lógica del toggle)
+        btnPlayPausa.setOnAction(evento -> {
+            if (cancionActual != null) {
+                if (estaReproduciendo) {
+                    // Si está sonando, lo detenemos y cambiamos la cara del botón a Play
+                    reproductor.detener();
+                    btnPlayPausa.setText("▶ Play");
+                    estaReproduciendo = false;
+                    System.out.println("Reproducción detenida.");
+                } else {
+                    // Si está detenido, aseguramos que todo se apague, le damos play y cambiamos a Pausa
+                    reproductor.detener(); 
+                    reproductor.reproducir(cancionActual.getRuta());
+                    btnPlayPausa.setText("⏸ Pausa");
+                    estaReproduciendo = true;
+                    System.out.println("Sonando: " + cancionActual.getNombre());
+                }
+            } else {
+                System.out.println("Por favor, selecciona una canción de la tabla primero.");
             }
         });
 
@@ -117,9 +144,12 @@ public class AppGUI extends Application {
         layoutPrincipal.setBottom(barraReproduccion);
 
         Scene escena = new Scene(layoutPrincipal, 1000, 700); 
-        
-        // Agregar una pequeña hoja de estilos para que la tabla se vea oscura y combine con el resto
         escena.getRoot().setStyle("-fx-base: #121212; -fx-control-inner-background: #121212; -fx-table-cell-border-color: transparent; -fx-table-header-background-color: #282828;");
+
+        escenarioPrincipal.setOnCloseRequest(evento -> {
+            reproductor.detener();
+            System.exit(0);
+        });
 
         escenarioPrincipal.setTitle("Sounds - Reproductor Musical");
         escenarioPrincipal.setScene(escena);

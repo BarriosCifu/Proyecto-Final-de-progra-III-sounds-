@@ -1,4 +1,3 @@
-
 package com.mycompany.sounds;
 
 /**
@@ -7,44 +6,30 @@ package com.mycompany.sounds;
  */
 public class ArbolBinarioBusqueda {
 private NodoArbol raiz;
-
     public ArbolBinarioBusqueda() {
         this.raiz = null;
     }
-
-    // --- INSERCIÓN ---
-    public void insertar(Cancion cancion) {
-        raiz = insertarRecursivo(raiz, cancion);
+  public void insertar(Cancion cancion) {
+    raiz = insertarRecursivo(raiz, cancion);
     }
-
     private NodoArbol insertarRecursivo(NodoArbol nodoActual, Cancion cancion) {
-        // Si llegamos a una hoja libre, creamos el nuevo nodo
         if (nodoActual == null) {
             return new NodoArbol(cancion);
         }
-
-        // Comparamos los nombres para decidir el camino (izquierda o derecha)
-        // compareToIgnoreCase devuelve < 0 si va antes en el alfabeto, > 0 si va después
-        int comparacion = cancion.getNombre().compareToIgnoreCase(nodoActual.getCancion().getNombre());
-
+      int comparacion = cancion.getNombre().compareToIgnoreCase(nodoActual.getCancion().getNombre());
         if (comparacion < 0) {
-            nodoActual.setIzquierdo(insertarRecursivo(nodoActual.getIzquierdo(), cancion));
+         nodoActual.setIzquierdo(insertarRecursivo(nodoActual.getIzquierdo(), cancion));
         } else if (comparacion > 0) {
-            nodoActual.setDerecho(insertarRecursivo(nodoActual.getDerecho(), cancion));
+    nodoActual.setDerecho(insertarRecursivo(nodoActual.getDerecho(), cancion));
         }
-        
-        return nodoActual;
+       return nodoActual;
     }
-
-    // --- RECORRIDOS ---
-    
-    // InOrden: Izquierda -> Raíz -> Derecha (Útil para imprimir en orden alfabético)
+        // InOrden: Izquierda -> Raíz -> Derecha (Útil para imprimir en orden alfabético)
     public void mostrarInOrden() {
         System.out.println("--- Recorrido InOrden ---");
         inOrdenRecursivo(raiz);
         System.out.println("-------------------------");
     }
-
     private void inOrdenRecursivo(NodoArbol nodo) {
         if (nodo != null) {
             inOrdenRecursivo(nodo.getIzquierdo());
@@ -52,14 +37,12 @@ private NodoArbol raiz;
             inOrdenRecursivo(nodo.getDerecho());
         }
     }
-
     // PreOrden: Raíz -> Izquierda -> Derecha
     public void mostrarPreOrden() {
         System.out.println("--- Recorrido PreOrden ---");
         preOrdenRecursivo(raiz);
         System.out.println("--------------------------");
     }
-
     private void preOrdenRecursivo(NodoArbol nodo) {
         if (nodo != null) {
             System.out.println(nodo.getCancion().getNombre());
@@ -67,14 +50,12 @@ private NodoArbol raiz;
             preOrdenRecursivo(nodo.getDerecho());
         }
     }
-
     // PostOrden: Izquierda -> Derecha -> Raíz
     public void mostrarPostOrden() {
         System.out.println("--- Recorrido PostOrden ---");
         postOrdenRecursivo(raiz);
         System.out.println("---------------------------");
     }
-
     private void postOrdenRecursivo(NodoArbol nodo) {
         if (nodo != null) {
             postOrdenRecursivo(nodo.getIzquierdo());
@@ -85,15 +66,12 @@ private NodoArbol raiz;
         public Cancion buscar(String nombre) {
         return buscarRecursivo(raiz, nombre);
     }
-
     private Cancion buscarRecursivo(NodoArbol nodo, String nombre) {
         // Si llegamos al final y no está, o si el árbol está vacío
         if (nodo == null) {
             return null; 
         }
-
         int comparacion = nombre.compareToIgnoreCase(nodo.getCancion().getNombre());
-
         if (comparacion == 0) {
             return nodo.getCancion(); // ¡La encontramos!
         } else if (comparacion < 0) {
@@ -101,20 +79,16 @@ private NodoArbol raiz;
         } else {
             return buscarRecursivo(nodo.getDerecho(), nombre); // Buscamos en la derecha
         }
-        
-    }
+      }
     // --- ELIMINACIÓN ---
     public void eliminar(String nombre) {
         raiz = eliminarRecursivo(raiz, nombre);
     }
-
     private NodoArbol eliminarRecursivo(NodoArbol nodo, String nombre) {
         if (nodo == null) {
             return null;
         }
-
         int comparacion = nombre.compareToIgnoreCase(nodo.getCancion().getNombre());
-
         if (comparacion < 0) {
             nodo.setIzquierdo(eliminarRecursivo(nodo.getIzquierdo(), nombre));
         } else if (comparacion > 0) {
@@ -126,11 +100,9 @@ private NodoArbol raiz;
             } else if (nodo.getDerecho() == null) {
                 return nodo.getIzquierdo();
             }
-
             // Caso 3: Dos hijos. Buscamos el sucesor en inorden (el menor de los mayores)
             NodoArbol sucesor = encontrarMinimo(nodo.getDerecho());
-            
-            // Reemplazamos los datos del nodo actual con los del sucesor
+                        // Reemplazamos los datos del nodo actual con los del sucesor
             nodo.setCancion(sucesor.getCancion());
             
             // Eliminamos el sucesor de su posición original

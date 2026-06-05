@@ -137,6 +137,39 @@ public class AppGUI extends Application {
                 System.out.println("Por favor, selecciona una canción de la tabla primero.");
             }
         });
+        // 4. Botón Siguiente (⏭)
+        btnSiguiente.setOnAction(evento -> {
+            int indiceActual = tablaCanciones.getSelectionModel().getSelectedIndex();
+            // Verificamos que no estemos en la última canción de la lista
+            if (indiceActual >= 0 && indiceActual < tablaCanciones.getItems().size() - 1) {
+                // Seleccionamos la siguiente fila en la tabla
+                tablaCanciones.getSelectionModel().select(indiceActual + 1);
+                
+                // Actualizamos la bandera y hacemos que suene
+                reproductor.detener();
+                reproductor.reproducir(cancionActual.getRuta());
+                btnPlayPausa.setText("⏸ Pausa");
+                estaReproduciendo = true;
+                System.out.println("Saltando a la siguiente: " + cancionActual.getNombre());
+            }
+        });
+
+        // 5. Botón Anterior (⏮)
+        btnAnterior.setOnAction(evento -> {
+            int indiceActual = tablaCanciones.getSelectionModel().getSelectedIndex();
+            // Verificamos que no estemos en la primera canción (índice 0)
+            if (indiceActual > 0) {
+                // Seleccionamos la fila anterior en la tabla
+                tablaCanciones.getSelectionModel().select(indiceActual - 1);
+                
+                // Actualizamos la bandera y hacemos que suene
+                reproductor.detener();
+                reproductor.reproducir(cancionActual.getRuta());
+                btnPlayPausa.setText("⏸ Pausa");
+                estaReproduciendo = true;
+                System.out.println("Regresando a: " + cancionActual.getNombre());
+            }
+        });
 
         // --- Ensamblar y Mostrar ---
         layoutPrincipal.setLeft(menuIzquierdo);

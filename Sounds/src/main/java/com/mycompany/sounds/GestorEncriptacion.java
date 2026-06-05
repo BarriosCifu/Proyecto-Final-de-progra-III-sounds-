@@ -40,7 +40,7 @@ public class GestorEncriptacion {
     private static void escribirInOrden(NodoArbol nodo, PrintWriter writer) {
      if (nodo != null) {
           escribirInOrden(nodo.getIzquierdo(), writer);
-           writer.println(cifrar(nodo.getCancion().getRuta())); // Guardamos la ruta encriptada
+           writer.println(cifrar(nodo.getCancion().getRuta()));
            escribirInOrden(nodo.getDerecho(), writer);
         }
     }

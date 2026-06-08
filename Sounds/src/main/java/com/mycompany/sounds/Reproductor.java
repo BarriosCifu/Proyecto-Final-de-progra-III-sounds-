@@ -1,26 +1,40 @@
 
 package com.mycompany.sounds;
+
+import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import javazoom.jl.player.Player;
+
 public class Reproductor {
     private Player player;
     private Thread hiloReproduccion;
     private String rutaActual;
     
-    // Variables para manejar la pausa (JLayer básico requiere guardar el estado)
     private FileInputStream fis;
     private long pausaPunto; 
     private boolean enPausa;
+    
+    // Variables NUEVAS para la barra de progreso
+    private long bytesTotales; 
 
     public Reproductor() {
         this.enPausa = false;
     }
 
     public void reproducir(String rutaArchivo) {
-        detener(); // Limpiamos cualquier reproducción anterior
+        detener(); 
         this.rutaActual = rutaArchivo;
         this.enPausa = false;
+        
+        // Obtenemos el peso total del archivo antes de reproducirlo
+        try {
+            File archivo = new File(rutaArchivo);
+            this.bytesTotales = archivo.length();
+        } catch (Exception e) {
+            this.bytesTotales = 0;
+        }
+        
         iniciarHilo(0);
     }
 
@@ -29,7 +43,7 @@ public class Reproductor {
             try {
                 fis = new FileInputStream(rutaActual);
                 if (saltarBytes > 0) {
-                    fis.skip(saltarBytes); // Saltamos a la posición donde se pausó
+                    fis.skip(saltarBytes); 
                 }
                 player = new Player(fis);
                 player.play();
@@ -55,7 +69,7 @@ public class Reproductor {
         if (player != null && !enPausa) {
             try {
                 enPausa = true;
-                pausaPunto = fis.available(); // Guardamos cuántos bytes faltan por leer
+                pausaPunto = fis.available();
                 player.close();
                 if (hiloReproduccion != null) {
                     hiloReproduccion.interrupt();
@@ -71,15 +85,39 @@ public class Reproductor {
             enPausa = false;
             try {
                 FileInputStream fisTemp = new FileInputStream(rutaActual);
-                long totalBytes = fisTemp.available();
+                long totalBytesTemp = fisTemp.available();
                 fisTemp.close();
                 
-                // Calculamos cuántos bytes saltar para reanudar donde nos quedamos
-                long bytesASaltar = totalBytes - pausaPunto; 
+                long bytesASaltar = totalBytesTemp - pausaPunto; 
                 iniciarHilo(bytesASaltar);
             } catch (IOException e) {
                 System.out.println("Error al reanudar: " + e.getMessage());
             }
         }
+    }
+
+    public double getProgreso() {
+        if (fis != null && bytesTotales > 0 && !enPausa) {
+            try {
+                long bytesRestantes = fis.available();
+                long bytesLeidos = bytesTotales - bytesRestantes;
+                return (double) bytesLeidos / bytesTotales;
+            } catch (IOException e) {
+                return 0.0;
+            }
+        }
+        return 0.0;
+    }
+
+    // asumiendo 128 kbps
+    public int getDuracionEstimadaSegundos() {
+        if (bytesTotales > 0) {
+            return (int) (bytesTotales / 16000); 
+        }
+        return 0;
+    }
+
+    public boolean isReproduciendo() {
+        return player != null && !enPausa;
     }
 }

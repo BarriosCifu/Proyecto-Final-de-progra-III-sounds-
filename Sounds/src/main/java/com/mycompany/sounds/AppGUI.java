@@ -1,6 +1,5 @@
 package com.mycompany.sounds;
 
-
 import java.io.File;
 import java.util.Collections;
 import java.util.List;
@@ -12,6 +11,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.Slider;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
@@ -19,22 +19,20 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
 
 public class AppGUI extends Application {
 
-    // Variables globales para la Biblioteca Principal
     private TableView<Cancion> tablaCanciones;
     private ObservableList<Cancion> listaObservableCanciones;
     private List<Cancion> listaOriginalCanciones; 
     
-    // Variables globales para "Siguiente en la Fila" (La Cola)
     private TableView<Cancion> tablaCola;
     private ObservableList<Cancion> listaObservableCola = FXCollections.observableArrayList();
     
-    // Motor de audio y control de estados
     private Reproductor reproductor = new Reproductor();
     private Cancion cancionActual = null;
     private boolean estaReproduciendo = false;
@@ -43,7 +41,7 @@ public class AppGUI extends Application {
     public void start(Stage escenarioPrincipal) {
         BorderPane layoutPrincipal = new BorderPane();
 
-        // --- 1. PANEL IZQUIERDO (Menú lateral) ---
+        // --- 1. PANEL IZQUIERDO ---
         VBox menuIzquierdo = new VBox(15);
         menuIzquierdo.setPrefWidth(220);
         menuIzquierdo.setStyle("-fx-background-color: #000000; -fx-padding: 20px;");
@@ -57,7 +55,7 @@ public class AppGUI extends Application {
         
         menuIzquierdo.getChildren().addAll(textoMenu, btnCargarMusica);
 
-        // --- 2. PANEL CENTRAL (Biblioteca Principal) ---
+        // --- 2. PANEL CENTRAL ---
         VBox panelCentral = new VBox(10);
         panelCentral.setStyle("-fx-background-color: #121212; -fx-padding: 20px;");
         
@@ -91,11 +89,11 @@ public class AppGUI extends Application {
         colAlbum.setCellValueFactory(new PropertyValueFactory<>("album"));
         
         tablaCanciones.getColumns().addAll(colNombre, colArtista, colAlbum);
-        VBox.setVgrow(tablaCanciones, javafx.scene.layout.Priority.ALWAYS);
+        VBox.setVgrow(tablaCanciones, Priority.ALWAYS);
         
         panelCentral.getChildren().addAll(barraBusqueda, encabezadoBiblioteca, tablaCanciones);
 
-        // --- 3. PANEL DERECHO (Siguiente en la Fila) ---
+        // --- 3. PANEL DERECHO ---
         VBox panelDerecho = new VBox(10);
         panelDerecho.setPrefWidth(280);
         panelDerecho.setStyle("-fx-background-color: #000000; -fx-padding: 20px; -fx-border-color: #282828; -fx-border-width: 0 0 0 1;");
@@ -109,7 +107,7 @@ public class AppGUI extends Application {
         colNombreCola.setCellValueFactory(new PropertyValueFactory<>("nombre"));
         tablaCola.getColumns().add(colNombreCola);
         tablaCola.setItems(listaObservableCola);
-        VBox.setVgrow(tablaCola, javafx.scene.layout.Priority.ALWAYS);
+        VBox.setVgrow(tablaCola, Priority.ALWAYS);
         
         HBox botonesCola = new HBox(10);
         botonesCola.setAlignment(Pos.CENTER);
@@ -125,11 +123,31 @@ public class AppGUI extends Application {
         
         panelDerecho.getChildren().addAll(tituloCola, tablaCola, botonesCola);
 
-        // --- 4. PANEL INFERIOR (Controles de reproducción) ---
-        HBox barraReproduccion = new HBox(30); 
-        barraReproduccion.setPrefHeight(90);
-        barraReproduccion.setAlignment(Pos.CENTER);
-        barraReproduccion.setStyle("-fx-background-color: #181818; -fx-border-color: #282828; -fx-border-width: 1 0 0 0;");
+        // --- 4. PANEL INFERIOR (Barra de progreso + Botones) ---
+        VBox panelInferior = new VBox(10);
+        panelInferior.setPrefHeight(100);
+        panelInferior.setAlignment(Pos.CENTER);
+        panelInferior.setStyle("-fx-background-color: #181818; -fx-border-color: #282828; -fx-border-width: 1 0 0 0; -fx-padding: 10px 30px;");
+        
+        // Fila 1: Barra de progreso estilo Spotify
+        HBox contenedorProgreso = new HBox(15);
+        contenedorProgreso.setAlignment(Pos.CENTER);
+        
+        Label lblTiempoActual = new Label("0:00");
+        lblTiempoActual.setStyle("-fx-text-fill: #b3b3b3; -fx-font-size: 12px;");
+        
+        Slider sliderProgreso = new Slider();
+        HBox.setHgrow(sliderProgreso, Priority.ALWAYS); // Hace que la barra ocupe todo el espacio central
+        sliderProgreso.setStyle("-fx-control-inner-background: #535353;"); // Estilo oscuro básico
+        
+        Label lblTiempoTotal = new Label("0:00");
+        lblTiempoTotal.setStyle("-fx-text-fill: #b3b3b3; -fx-font-size: 12px;");
+        
+        contenedorProgreso.getChildren().addAll(lblTiempoActual, sliderProgreso, lblTiempoTotal);
+
+        // Fila 2: Botones de reproducción
+        HBox barraBotones = new HBox(30); 
+        barraBotones.setAlignment(Pos.CENTER);
         
         Button btnAnterior = new Button("⏮");
         Button btnPlayPausa = new Button("▶ Play"); 
@@ -139,11 +157,14 @@ public class AppGUI extends Application {
         btnAnterior.setStyle(estiloBotones);
         btnSiguiente.setStyle(estiloBotones);
         btnPlayPausa.setStyle(estiloBotones + "-fx-font-size: 22px; -fx-min-width: 110px;"); 
-        barraReproduccion.getChildren().addAll(btnAnterior, btnPlayPausa, btnSiguiente);
+        
+        barraBotones.getChildren().addAll(btnAnterior, btnPlayPausa, btnSiguiente);
+        
+        // Agregamos ambas filas al panel inferior
+        panelInferior.getChildren().addAll(contenedorProgreso, barraBotones);
 
         // --- EVENTOS DE INTERFAZ ---
         
-        // EVENTO NUEVO: Doble clic en la tabla para reproducir inmediatamente
         tablaCanciones.setOnMouseClicked(evento -> {
             if (evento.getButton().equals(MouseButton.PRIMARY) && evento.getClickCount() == 2) {
                 cancionActual = tablaCanciones.getSelectionModel().getSelectedItem();
@@ -156,7 +177,6 @@ public class AppGUI extends Application {
             }
         });
         
-        // Cargar carpeta de música
         btnCargarMusica.setOnAction(evento -> {
             DirectoryChooser selectorDirectorio = new DirectoryChooser();
             selectorDirectorio.setTitle("Selecciona la carpeta con tu música");
@@ -171,7 +191,6 @@ public class AppGUI extends Application {
             }
         });
 
-        // Buscador en tiempo real
         txtBuscar.textProperty().addListener((observable, textoViejo, textoNuevo) -> {
             if (listaOriginalCanciones == null) return;
             if (textoNuevo == null || textoNuevo.trim().isEmpty()) {
@@ -191,7 +210,6 @@ public class AppGUI extends Application {
 
         btnLimpiar.setOnAction(evento -> txtBuscar.clear());
         
-        // Añadir canción a la cola
         btnAñadirACola.setOnAction(evento -> {
             Cancion seleccionada = tablaCanciones.getSelectionModel().getSelectedItem();
             if (seleccionada != null) {
@@ -199,7 +217,6 @@ public class AppGUI extends Application {
             }
         });
 
-        // Quitar de la cola
         btnQuitarCola.setOnAction(evento -> {
             Cancion seleccionada = tablaCola.getSelectionModel().getSelectedItem();
             if (seleccionada != null) {
@@ -207,7 +224,6 @@ public class AppGUI extends Application {
             }
         });
 
-        // Mover hacia arriba en la cola (🔼)
         btnSubirCola.setOnAction(evento -> {
             int indice = tablaCola.getSelectionModel().getSelectedIndex();
             if (indice > 0) {
@@ -216,7 +232,6 @@ public class AppGUI extends Application {
             }
         });
 
-        // Mover hacia abajo en la cola (🔽)
         btnBajarCola.setOnAction(evento -> {
             int indice = tablaCola.getSelectionModel().getSelectedIndex();
             if (indice >= 0 && indice < listaObservableCola.size() - 1) {
@@ -225,7 +240,6 @@ public class AppGUI extends Application {
             }
         });
         
-        // Botón Play / Pausa (Lógica FIFO corregida)
         btnPlayPausa.setOnAction(evento -> {
             if (estaReproduciendo) {
                 reproductor.detener();
@@ -233,11 +247,9 @@ public class AppGUI extends Application {
                 estaReproduciendo = false;
             } else {
                 if (!listaObservableCola.isEmpty()) {
-                    // Saca la primera canción de la cola (FIFO)
                     cancionActual = listaObservableCola.remove(0); 
                     tablaCanciones.getSelectionModel().select(cancionActual);
                 } else {
-                    // Si no hay cola, toma la seleccionada en la tabla central
                     cancionActual = tablaCanciones.getSelectionModel().getSelectedItem();
                 }
 
@@ -250,7 +262,6 @@ public class AppGUI extends Application {
             }
         });
 
-        // Botón Siguiente
         btnSiguiente.setOnAction(evento -> {
             if (!listaObservableCola.isEmpty()) {
                 cancionActual = listaObservableCola.remove(0); 
@@ -274,7 +285,6 @@ public class AppGUI extends Application {
             }
         });
 
-        // Botón Anterior
         btnAnterior.setOnAction(evento -> {
             int indiceActual = tablaCanciones.getSelectionModel().getSelectedIndex();
             if (indiceActual > 0) {
@@ -292,7 +302,7 @@ public class AppGUI extends Application {
         layoutPrincipal.setLeft(menuIzquierdo);
         layoutPrincipal.setCenter(panelCentral);
         layoutPrincipal.setRight(panelDerecho);
-        layoutPrincipal.setBottom(barraReproduccion);
+        layoutPrincipal.setBottom(panelInferior); // <--- Actualizado al nuevo panel con progreso
 
         Scene escena = new Scene(layoutPrincipal, 1150, 700); 
         escena.getRoot().setStyle("-fx-base: #121212; -fx-control-inner-background: #121212; -fx-table-cell-border-color: transparent; -fx-table-header-background-color: #282828;");

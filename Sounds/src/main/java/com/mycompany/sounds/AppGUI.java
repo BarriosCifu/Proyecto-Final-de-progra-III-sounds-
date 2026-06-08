@@ -1,9 +1,12 @@
 package com.mycompany.sounds;
 
+
 import java.io.File;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -23,6 +26,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
+import javafx.util.Duration;
 
 public class AppGUI extends Application {
 
@@ -36,6 +40,11 @@ public class AppGUI extends Application {
     private Reproductor reproductor = new Reproductor();
     private Cancion cancionActual = null;
     private boolean estaReproduciendo = false;
+    
+    // Controles de progreso globales para el Timeline
+    private Slider sliderProgreso;
+    private Label lblTiempoActual;
+    private Label lblTiempoTotal;
 
     @Override
     public void start(Stage escenarioPrincipal) {
@@ -123,35 +132,26 @@ public class AppGUI extends Application {
         
         panelDerecho.getChildren().addAll(tituloCola, tablaCola, botonesCola);
 
-        // --- 4. PANEL INFERIOR (Barra COMPACTA Turquesa + Botones) ---
+        // --- 4. PANEL INFERIOR ---
         VBox panelInferior = new VBox(10);
         panelInferior.setPrefHeight(100);
         panelInferior.setAlignment(Pos.CENTER);
         panelInferior.setStyle("-fx-background-color: #181818; -fx-border-color: #282828; -fx-border-width: 1 0 0 0; -fx-padding: 10px 30px;");
         
-        // Fila 1: Barra de progreso COMPACTA Y TURQUESA
         HBox contenedorProgreso = new HBox(15);
         contenedorProgreso.setAlignment(Pos.CENTER);
         
-        Label lblTiempoActual = new Label("0:00");
+        lblTiempoActual = new Label("0:00");
         lblTiempoActual.setStyle("-fx-text-fill: #b3b3b3; -fx-font-size: 12px;");
         
-        // Creación del Slider (barra de progreso)
-        Slider sliderProgreso = new Slider();
+        sliderProgreso = new Slider();
+        sliderProgreso.setPrefWidth(350); 
+        sliderProgreso.setMinWidth(250); 
+        sliderProgreso.setStyle("-fx-base: #181818; -fx-accent: #30D5C8;");
+        // Deshabilitamos el arrastre manual momentáneamente ya que JLayer requiere lógica compleja para adelantar canciones
+        sliderProgreso.setMouseTransparent(true); 
         
-        // --- KEY SIZE CHANGE: NO USAR setHgrow(Priority.ALWAYS) ---
-        // Al NO expandirse, el HBox que lo contiene se centrará perfectamente
-        // y la barra tendrá un ancho fijo y estilizado en el centro.
-        sliderProgreso.setPrefWidth(350); // ancho estilizado según tu imagen marcada.
-        sliderProgreso.setMinWidth(250); // No permitir que se encoja mucho.
-        
-        // --- CAMBIO DE ESTILO: Color Turquesa/Cyan vibrante ---
-        sliderProgreso.setStyle(
-            "-fx-base: #181818;" + // Color de fondo del track (gris oscuro para que se vea la barra base)
-            "-fx-accent: #30D5C8;" // Color vibrante del track relleno (Turquesa/Cyan).
-        );
-        
-        Label lblTiempoTotal = new Label("0:00");
+        lblTiempoTotal = new Label("0:00");
         lblTiempoTotal.setStyle("-fx-text-fill: #b3b3b3; -fx-font-size: 12px;");
         
         contenedorProgreso.getChildren().addAll(lblTiempoActual, sliderProgreso, lblTiempoTotal);
@@ -171,6 +171,23 @@ public class AppGUI extends Application {
         barraBotones.getChildren().addAll(btnAnterior, btnPlayPausa, btnSiguiente);
         
         panelInferior.getChildren().addAll(contenedorProgreso, barraBotones);
+
+        // --- TIMELINE: EL MOTOR DE LA BARRA DE PROGRESO ---
+        // Este bloque se ejecuta en bucle de manera independiente cada 200 milisegundos
+        Timeline temporizador = new Timeline(new KeyFrame(Duration.millis(200), evento -> {
+            if (reproductor.isReproduciendo()) {
+                double progreso = reproductor.getProgreso(); // Traemos el valor de 0.0 a 1.0
+                sliderProgreso.setValue(progreso * 100); // Lo adaptamos a escala de Slider (0 a 100)
+
+                int totalSegundos = reproductor.getDuracionEstimadaSegundos();
+                int segundosActuales = (int) (totalSegundos * progreso);
+
+                lblTiempoActual.setText(formatearTiempo(segundosActuales));
+                lblTiempoTotal.setText(formatearTiempo(totalSegundos));
+            }
+        }));
+        temporizador.setCycleCount(Timeline.INDEFINITE);
+        temporizador.play();
 
         // --- EVENTOS DE INTERFAZ ---
         
@@ -251,22 +268,30 @@ public class AppGUI extends Application {
         
         btnPlayPausa.setOnAction(evento -> {
             if (estaReproduciendo) {
-                reproductor.detener();
+                // Al pausar usamos el nuevo método
+                reproductor.pausar();
                 btnPlayPausa.setText("▶ Play");
                 estaReproduciendo = false;
             } else {
-                if (!listaObservableCola.isEmpty()) {
-                    cancionActual = listaObservableCola.remove(0); 
-                    tablaCanciones.getSelectionModel().select(cancionActual);
-                } else {
-                    cancionActual = tablaCanciones.getSelectionModel().getSelectedItem();
-                }
-
-                if (cancionActual != null) {
-                    reproductor.detener(); 
-                    reproductor.reproducir(cancionActual.getRuta());
+                // Si la canción estaba pausada, la continuamos
+                if (cancionActual != null && reproductor.getProgreso() > 0 && reproductor.getProgreso() < 1) {
+                    reproductor.continuar();
                     btnPlayPausa.setText("⏸ Pausa");
                     estaReproduciendo = true;
+                } else {
+                    if (!listaObservableCola.isEmpty()) {
+                        cancionActual = listaObservableCola.remove(0); 
+                        tablaCanciones.getSelectionModel().select(cancionActual);
+                    } else {
+                        cancionActual = tablaCanciones.getSelectionModel().getSelectedItem();
+                    }
+
+                    if (cancionActual != null) {
+                        reproductor.detener(); 
+                        reproductor.reproducir(cancionActual.getRuta());
+                        btnPlayPausa.setText("⏸ Pausa");
+                        estaReproduciendo = true;
+                    }
                 }
             }
         });
@@ -324,6 +349,13 @@ public class AppGUI extends Application {
         escenarioPrincipal.setTitle("Sounds - Reproductor Musical");
         escenarioPrincipal.setScene(escena);
         escenarioPrincipal.show();
+    }
+
+    // Método de utilidad para convertir segundos (ej: 65) a formato reloj (ej: 1:05)
+    private String formatearTiempo(int segundosTotales) {
+        int minutos = segundosTotales / 60;
+        int segundos = segundosTotales % 60;
+        return String.format("%d:%02d", minutos, segundos);
     }
 
     public static void main(String[] args) {

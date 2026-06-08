@@ -1,4 +1,3 @@
-
 package com.mycompany.sounds;
 
 import java.io.File;
@@ -15,7 +14,6 @@ public class Reproductor {
     private long pausaPunto; 
     private boolean enPausa;
     
-    // Variables NUEVAS para la barra de progreso
     private long bytesTotales; 
 
     public Reproductor() {
@@ -27,7 +25,6 @@ public class Reproductor {
         this.rutaActual = rutaArchivo;
         this.enPausa = false;
         
-        // Obtenemos el peso total del archivo antes de reproducirlo
         try {
             File archivo = new File(rutaArchivo);
             this.bytesTotales = archivo.length();
@@ -96,6 +93,16 @@ public class Reproductor {
         }
     }
 
+    // --- EL TRUCO PARA ADELANTAR LA CANCIÓN ---
+    public void saltarA(double porcentaje) {
+        if (rutaActual != null && bytesTotales > 0) {
+            detener(); // Apagamos el reproductor actual
+            long bytesASaltar = (long) (bytesTotales * porcentaje); // Calculamos hasta qué byte saltar
+            this.enPausa = false;
+            iniciarHilo(bytesASaltar); // Lo encendemos de nuevo desde ese punto
+        }
+    }
+
     public double getProgreso() {
         if (fis != null && bytesTotales > 0 && !enPausa) {
             try {
@@ -109,10 +116,11 @@ public class Reproductor {
         return 0.0;
     }
 
-    // asumiendo 128 kbps
+    // --- FÓRMULA CORREGIDA PARA AUDIOS DE ALTA CALIDAD ---
     public int getDuracionEstimadaSegundos() {
         if (bytesTotales > 0) {
-            return (int) (bytesTotales / 16000); 
+            // Un MP3 de 320 kbps consume aprox. 40,000 bytes por segundo
+            return (int) (bytesTotales / 40000); 
         }
         return 0;
     }

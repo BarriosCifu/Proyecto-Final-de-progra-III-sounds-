@@ -1,9 +1,9 @@
-
 package com.mycompany.sounds;
 
 
 import java.io.File;
 import java.util.List;
+import java.util.stream.Collectors;
 import javafx.application.Application;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -26,14 +26,12 @@ public class AppGUI extends Application {
     // Variables globales
     private TableView<Cancion> tablaCanciones;
     private ObservableList<Cancion> listaObservableCanciones;
-    private List<Cancion> listaOriginalCanciones; // Para guardar la lista completa y poder restablecerla
+    private List<Cancion> listaOriginalCanciones; 
     
-    // Reproductor y controles
     private Reproductor reproductor = new Reproductor();
     private Cancion cancionActual = null;
     private boolean estaReproduciendo = false;
     
-    // Estructura de Datos para búsquedas ultrarrápidas
     private ArbolAVL arbolBuscador = new ArbolAVL();
 
     @Override
@@ -54,27 +52,24 @@ public class AppGUI extends Application {
         
         menuIzquierdo.getChildren().addAll(textoMenu, btnCargarMusica);
 
-        // --- 2. PANEL CENTRAL (Ahora con Barra de Búsqueda) ---
+        // --- 2. PANEL CENTRAL ---
         VBox panelCentral = new VBox(10);
         panelCentral.setStyle("-fx-background-color: #121212; -fx-padding: 20px;");
         
-        // --- BARRA DE BÚSQUEDA ---
+        // --- BARRA DE BÚSQUEDA EN TIEMPO REAL ---
         HBox barraBusqueda = new HBox(10);
         barraBusqueda.setAlignment(Pos.CENTER_LEFT);
         
         TextField txtBuscar = new TextField();
-        txtBuscar.setPromptText("Escribe el nombre exacto de la canción...");
-        txtBuscar.setPrefWidth(300);
+        txtBuscar.setPromptText("Buscar por título o artista...");
+        txtBuscar.setPrefWidth(350);
         txtBuscar.setStyle("-fx-background-color: #282828; -fx-text-fill: white; -fx-prompt-text-fill: gray;");
         
-        Button btnBuscar = new Button("🔍 Buscar");
-        btnBuscar.setStyle("-fx-background-color: #1db954; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
+        Button btnLimpiar = new Button("✖ Limpiar");
+        btnLimpiar.setStyle("-fx-background-color: transparent; -fx-text-fill: gray; -fx-cursor: hand;");
         
-        Button btnRestablecer = new Button("Restablecer");
-        btnRestablecer.setStyle("-fx-background-color: #333333; -fx-text-fill: white; -fx-cursor: hand;");
-        
-        barraBusqueda.getChildren().addAll(txtBuscar, btnBuscar, btnRestablecer);
-        // -------------------------
+        barraBusqueda.getChildren().addAll(txtBuscar, btnLimpiar);
+        // -----------------------------------------
 
         Label tituloCentral = new Label("Biblioteca Principal");
         tituloCentral.setStyle("-fx-text-fill: white; -fx-font-size: 24px; -fx-font-weight: bold; -fx-padding: 10px 0px 0px 0px;");
@@ -94,7 +89,6 @@ public class AppGUI extends Application {
         tablaCanciones.getColumns().addAll(colNombre, colArtista, colAlbum);
         VBox.setVgrow(tablaCanciones, javafx.scene.layout.Priority.ALWAYS);
         
-        // Agregamos la barra de búsqueda al principio del panel
         panelCentral.getChildren().addAll(barraBusqueda, tituloCentral, tablaCanciones);
 
         // --- 3. PANEL INFERIOR (Controles) ---
@@ -122,7 +116,6 @@ public class AppGUI extends Application {
             }
         });
         
-        // Botón Cargar Música (Modificado para llenar el Árbol AVL)
         btnCargarMusica.setOnAction(evento -> {
             DirectoryChooser selectorDirectorio = new DirectoryChooser();
             selectorDirectorio.setTitle("Selecciona la carpeta con tu música");
@@ -133,44 +126,39 @@ public class AppGUI extends Application {
                 lector.leerCarpetaRecursivamente(carpetaSeleccionada.getAbsolutePath());
                 listaOriginalCanciones = lector.getCancionesCargadas();
                 
-                // Mostrar en la tabla
                 listaObservableCanciones = FXCollections.observableArrayList(listaOriginalCanciones);
                 tablaCanciones.setItems(listaObservableCanciones);
-                
-                // --- LLENAR EL ÁRBOL AVL ---
-                arbolBuscador = new ArbolAVL(); // Reiniciamos el árbol por si carga otra carpeta
-                for (Cancion c : listaOriginalCanciones) {
-                    arbolBuscador.insertar(c);
-                }
-                System.out.println("Árbol AVL balanceado con " + listaOriginalCanciones.size() + " canciones.");
             }
         });
 
-        // Eventos de Búsqueda
-        btnBuscar.setOnAction(evento -> {
-            String textoBusqueda = txtBuscar.getText().trim();
-            if (!textoBusqueda.isEmpty()) {
-                // Usamos la complejidad O(log n) del Árbol AVL para encontrar la canción al instante
-                Cancion resultado = arbolBuscador.buscar(textoBusqueda);
-                
-                if (resultado != null) {
-                    // Si la encuentra, la tabla ahora solo mostrará esa canción
-                    tablaCanciones.setItems(FXCollections.observableArrayList(resultado));
-                } else {
-                    // Si no la encuentra, vaciamos la tabla
-                    tablaCanciones.setItems(FXCollections.observableArrayList());
-                    System.out.println("Canción no encontrada.");
-                }
-            }
-        });
+        // --- LA MAGIA DEL BUSCADOR EN TIEMPO REAL ---
+        txtBuscar.textProperty().addListener((observable, textoViejo, textoNuevo) -> {
+            // Si no hay música cargada aún, no hacemos nada
+            if (listaOriginalCanciones == null) return;
 
-        btnRestablecer.setOnAction(evento -> {
-            txtBuscar.clear();
-            if (listaOriginalCanciones != null) {
-                // Volvemos a mostrar toda la biblioteca
+            // Si el buscador está vacío, mostramos toda la biblioteca original
+            if (textoNuevo == null || textoNuevo.trim().isEmpty()) {
                 tablaCanciones.setItems(FXCollections.observableArrayList(listaOriginalCanciones));
+            } else {
+                // Convertimos el texto a minúsculas para ignorar mayúsculas
+                String busqueda = textoNuevo.toLowerCase();
+                
+                // Filtramos la lista original: si el nombre o el artista CONTIENEN el texto, se agrega a la nueva lista
+                List<Cancion> cancionesFiltradas = listaOriginalCanciones.stream()
+                        .filter(cancion -> cancion.getNombre().toLowerCase().contains(busqueda) || 
+                                           cancion.getArtista().toLowerCase().contains(busqueda))
+                        .collect(Collectors.toList());
+                
+                // Actualizamos la tabla al instante con los resultados
+                tablaCanciones.setItems(FXCollections.observableArrayList(cancionesFiltradas));
             }
         });
+
+        // El botón limpiar solo borra el texto, lo cual dispara automáticamente el evento de arriba y restaura la tabla
+        btnLimpiar.setOnAction(evento -> {
+            txtBuscar.clear();
+        });
+        // ---------------------------------------------
         
         // Botones de Reproducción
         btnPlayPausa.setOnAction(evento -> {

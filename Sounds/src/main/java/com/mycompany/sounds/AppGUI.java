@@ -162,14 +162,15 @@ public class AppGUI extends Application {
         
         Button btnRepetir = new Button("🔁");
         Button btnAnterior = new Button("⏮");
-        Button btnPlayPausa = new Button("▶ Play"); 
+        Button btnPlayPausa = new Button("▶"); // <-- Solo el ícono
         Button btnSiguiente = new Button("⏭");
         
         String estiloBotones = "-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 18px; -fx-cursor: hand;";
         btnRepetir.setStyle(estiloBotones);
         btnAnterior.setStyle(estiloBotones);
         btnSiguiente.setStyle(estiloBotones);
-        btnPlayPausa.setStyle(estiloBotones + "-fx-font-size: 22px; -fx-min-width: 110px;"); 
+        // Hacemos el ícono de play/pausa un poco más grande y con ancho fijo
+        btnPlayPausa.setStyle(estiloBotones + "-fx-font-size: 24px; -fx-min-width: 60px;"); 
         
         barraBotones.getChildren().addAll(btnRepetir, btnAnterior, btnPlayPausa, btnSiguiente);
         panelInferior.getChildren().addAll(contenedorProgreso, barraBotones);
@@ -180,7 +181,7 @@ public class AppGUI extends Application {
             if (cancionActual != null) {
                 double porcentaje = sliderProgreso.getValue() / 100.0; 
                 reproductor.saltarA(porcentaje);
-                btnPlayPausa.setText("⏸ Pausa");
+                btnPlayPausa.setText("⏸");
                 estaReproduciendo = true;
             }
             arrastrandoSlider = false; 
@@ -209,23 +210,20 @@ public class AppGUI extends Application {
         temporizador.setCycleCount(Timeline.INDEFINITE);
         temporizador.play();
 
-        // --- EVENTO REPETIR (USANDO LISTA CIRCULAR PARA 1 CANCIÓN) ---
+        // --- EVENTO REPETIR ---
         btnRepetir.setOnAction(evento -> {
             modoRepeticion = !modoRepeticion;
             if (modoRepeticion) {
-                btnRepetir.setStyle(estiloBotones + "-fx-text-fill: #1db954;"); // Se pone verde
-                btnRepetir.setText("🔂"); // Ícono de repetir 1
+                btnRepetir.setStyle(estiloBotones + "-fx-text-fill: #1db954;"); 
+                btnRepetir.setText("🔂"); 
                 
-                // Vaciamos la lista y metemos SOLO la canción actual
                 listaRepeticion = new ListaCircular();
                 if (cancionActual != null) {
                     listaRepeticion.insertar(cancionActual);
                 }
-                System.out.println("Loop 1 Canción Activado.");
             } else {
                 btnRepetir.setStyle(estiloBotones); 
-                btnRepetir.setText("🔁"); // Ícono normal
-                System.out.println("Loop Desactivado.");
+                btnRepetir.setText("🔁"); 
             }
         });
 
@@ -234,7 +232,6 @@ public class AppGUI extends Application {
             if (evento.getButton().equals(MouseButton.PRIMARY) && evento.getClickCount() == 2) {
                 cancionActual = tablaCanciones.getSelectionModel().getSelectedItem();
                 if (cancionActual != null) {
-                    // Si el loop está prendido, actualizamos el nodo circular a la nueva canción seleccionada
                     if (modoRepeticion) {
                         listaRepeticion = new ListaCircular();
                         listaRepeticion.insertar(cancionActual);
@@ -242,7 +239,7 @@ public class AppGUI extends Application {
                     
                     reproductor.detener();
                     reproductor.reproducir(cancionActual.getRuta());
-                    btnPlayPausa.setText("⏸ Pausa");
+                    btnPlayPausa.setText("⏸");
                     estaReproduciendo = true;
                 }
             }
@@ -318,12 +315,12 @@ public class AppGUI extends Application {
         btnPlayPausa.setOnAction(evento -> {
             if (estaReproduciendo) {
                 reproductor.pausar();
-                btnPlayPausa.setText("▶ Play");
+                btnPlayPausa.setText("▶");
                 estaReproduciendo = false;
             } else {
                 if (cancionActual != null && reproductor.getProgreso() > 0 && reproductor.getProgreso() < 1) {
                     reproductor.continuar();
-                    btnPlayPausa.setText("⏸ Pausa");
+                    btnPlayPausa.setText("⏸");
                     estaReproduciendo = true;
                 } else {
                     if (!listaObservableCola.isEmpty()) {
@@ -340,22 +337,20 @@ public class AppGUI extends Application {
                     if (cancionActual != null) {
                         reproductor.detener(); 
                         reproductor.reproducir(cancionActual.getRuta());
-                        btnPlayPausa.setText("⏸ Pausa");
+                        btnPlayPausa.setText("⏸");
                         estaReproduciendo = true;
                     }
                 }
             }
         });
 
-        // --- BOTONES CON LÓGICA DE LISTA CIRCULAR INTEGRADA ---
         btnSiguiente.setOnAction(evento -> {
             if (modoRepeticion && listaRepeticion != null) {
-                // LÓGICA CIRCULAR (Loop): Siempre nos devuelve la misma canción encapsulada
                 cancionActual = listaRepeticion.irSiguiente();
                 if (cancionActual != null) {
                     reproductor.detener();
                     reproductor.reproducir(cancionActual.getRuta());
-                    btnPlayPausa.setText("⏸ Pausa");
+                    btnPlayPausa.setText("⏸");
                     estaReproduciendo = true;
                 }
             } else if (!listaObservableCola.isEmpty()) {
@@ -364,7 +359,7 @@ public class AppGUI extends Application {
                 
                 reproductor.detener();
                 reproductor.reproducir(cancionActual.getRuta());
-                btnPlayPausa.setText("⏸ Pausa");
+                btnPlayPausa.setText("⏸");
                 estaReproduciendo = true;
             } else {
                 int indiceActual = tablaCanciones.getSelectionModel().getSelectedIndex();
@@ -374,7 +369,7 @@ public class AppGUI extends Application {
                     
                     reproductor.detener();
                     reproductor.reproducir(cancionActual.getRuta());
-                    btnPlayPausa.setText("⏸ Pausa");
+                    btnPlayPausa.setText("⏸");
                     estaReproduciendo = true;
                 }
             }
@@ -382,12 +377,11 @@ public class AppGUI extends Application {
 
         btnAnterior.setOnAction(evento -> {
             if (modoRepeticion && listaRepeticion != null) {
-                // LÓGICA CIRCULAR HACIA ATRÁS: Sigue siendo la misma canción en el ciclo cerrado
                 cancionActual = listaRepeticion.irAnterior();
                 if (cancionActual != null) {
                     reproductor.detener();
                     reproductor.reproducir(cancionActual.getRuta());
-                    btnPlayPausa.setText("⏸ Pausa");
+                    btnPlayPausa.setText("⏸");
                     estaReproduciendo = true;
                 }
             } else {
@@ -398,7 +392,7 @@ public class AppGUI extends Application {
                     
                     reproductor.detener();
                     reproductor.reproducir(cancionActual.getRuta());
-                    btnPlayPausa.setText("⏸ Pausa");
+                    btnPlayPausa.setText("⏸");
                     estaReproduciendo = true;
                 }
             }

@@ -140,16 +140,21 @@ public class AppGUI extends Application {
             if (textoNuevo == null || textoNuevo.trim().isEmpty()) {
                 tablaCanciones.setItems(FXCollections.observableArrayList(listaOriginalCanciones));
             } else {
-                // Convertimos el texto a minúsculas para ignorar mayúsculas
                 String busqueda = textoNuevo.toLowerCase();
                 
-                // Filtramos la lista original: si el nombre o el artista CONTIENEN el texto, se agrega a la nueva lista
+                // Filtramos la lista aplicando la validación != null a cada propiedad
                 List<Cancion> cancionesFiltradas = listaOriginalCanciones.stream()
-                        .filter(cancion -> cancion.getNombre().toLowerCase().contains(busqueda) || 
-                                           cancion.getArtista().toLowerCase().contains(busqueda))
+                        .filter(cancion -> {
+                            // Extraemos los datos de forma segura. Si es null, asignamos texto vacío ("")
+                            String tituloSeguro = (cancion.getNombre() != null) ? cancion.getNombre().toLowerCase() : "";
+                            String artistaSeguro = (cancion.getArtista() != null) ? cancion.getArtista().toLowerCase() : "";
+                            
+                            // Verificamos si la búsqueda coincide con el título o el artista
+                            return tituloSeguro.contains(busqueda) || artistaSeguro.contains(busqueda);
+                        })
                         .collect(Collectors.toList());
                 
-                // Actualizamos la tabla al instante con los resultados
+                // Actualizamos la tabla
                 tablaCanciones.setItems(FXCollections.observableArrayList(cancionesFiltradas));
             }
         });

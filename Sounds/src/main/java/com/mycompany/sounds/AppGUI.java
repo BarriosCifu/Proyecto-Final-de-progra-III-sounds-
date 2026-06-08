@@ -43,9 +43,11 @@ public class AppGUI extends Application {
     private Slider sliderProgreso;
     private Label lblTiempoActual;
     private Label lblTiempoTotal;
-    
-    // NUEVA VARIABLE: Nos avisa si el usuario está tocando la barra
     private boolean arrastrandoSlider = false;
+
+    // Variables de la Lista Circular
+    private boolean modoRepeticion = false;
+    private ListaCircular listaRepeticion = new ListaCircular();
 
     @Override
     public void start(Stage escenarioPrincipal) {
@@ -149,7 +151,6 @@ public class AppGUI extends Application {
         sliderProgreso.setPrefWidth(350); 
         sliderProgreso.setMinWidth(250); 
         sliderProgreso.setStyle("-fx-base: #181818; -fx-accent: #30D5C8; -fx-cursor: hand;");
-        // ¡Ya no bloqueamos el slider!
         
         lblTiempoTotal = new Label("0:00");
         lblTiempoTotal.setStyle("-fx-text-fill: #b3b3b3; -fx-font-size: 12px;");
@@ -159,61 +160,86 @@ public class AppGUI extends Application {
         HBox barraBotones = new HBox(30); 
         barraBotones.setAlignment(Pos.CENTER);
         
+        Button btnRepetir = new Button("🔁");
         Button btnAnterior = new Button("⏮");
         Button btnPlayPausa = new Button("▶ Play"); 
         Button btnSiguiente = new Button("⏭");
         
         String estiloBotones = "-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 18px; -fx-cursor: hand;";
+        btnRepetir.setStyle(estiloBotones);
         btnAnterior.setStyle(estiloBotones);
         btnSiguiente.setStyle(estiloBotones);
         btnPlayPausa.setStyle(estiloBotones + "-fx-font-size: 22px; -fx-min-width: 110px;"); 
         
-        barraBotones.getChildren().addAll(btnAnterior, btnPlayPausa, btnSiguiente);
+        barraBotones.getChildren().addAll(btnRepetir, btnAnterior, btnPlayPausa, btnSiguiente);
         panelInferior.getChildren().addAll(contenedorProgreso, barraBotones);
 
-        // --- EVENTOS DEL SLIDER (ARRASTRAR Y SOLTAR) ---
-        
-        // Cuando haces clic para empezar a arrastrar, pausamos la actualización automática
-        sliderProgreso.setOnMousePressed(evento -> {
-            arrastrandoSlider = true;
-        });
-
-        // Cuando sueltas el clic en una parte de la barra, le decimos al reproductor que salte
+        // --- EVENTOS DEL SLIDER ---
+        sliderProgreso.setOnMousePressed(evento -> arrastrandoSlider = true);
         sliderProgreso.setOnMouseReleased(evento -> {
             if (cancionActual != null) {
-                double porcentaje = sliderProgreso.getValue() / 100.0; // Obtenemos un valor de 0.0 a 1.0
+                double porcentaje = sliderProgreso.getValue() / 100.0; 
                 reproductor.saltarA(porcentaje);
                 btnPlayPausa.setText("⏸ Pausa");
                 estaReproduciendo = true;
             }
-            arrastrandoSlider = false; // Permitimos que la barra vuelva a moverse sola
+            arrastrandoSlider = false; 
         });
 
-        // --- TIMELINE: EL MOTOR DE LA BARRA DE PROGRESO ---
+        // --- TIMELINE (AUTO-PLAY Y BARRA DE PROGRESO) ---
         Timeline temporizador = new Timeline(new KeyFrame(Duration.millis(200), evento -> {
             if (reproductor.isReproduciendo()) {
                 double progreso = reproductor.getProgreso(); 
                 int totalSegundos = reproductor.getDuracionEstimadaSegundos();
                 int segundosActuales = (int) (totalSegundos * progreso);
 
-                // SOLO movemos la barra automáticamente si tú no la estás arrastrando
                 if (!arrastrandoSlider) {
                     sliderProgreso.setValue(progreso * 100); 
                 }
 
                 lblTiempoActual.setText(formatearTiempo(segundosActuales));
                 lblTiempoTotal.setText(formatearTiempo(totalSegundos));
+                
+                // AUTO-PLAY
+                if (progreso >= 0.99 && estaReproduciendo) {
+                    btnSiguiente.fire(); 
+                }
             }
         }));
         temporizador.setCycleCount(Timeline.INDEFINITE);
         temporizador.play();
 
+        // --- EVENTO REPETIR (USANDO LISTA CIRCULAR PARA 1 CANCIÓN) ---
+        btnRepetir.setOnAction(evento -> {
+            modoRepeticion = !modoRepeticion;
+            if (modoRepeticion) {
+                btnRepetir.setStyle(estiloBotones + "-fx-text-fill: #1db954;"); // Se pone verde
+                btnRepetir.setText("🔂"); // Ícono de repetir 1
+                
+                // Vaciamos la lista y metemos SOLO la canción actual
+                listaRepeticion = new ListaCircular();
+                if (cancionActual != null) {
+                    listaRepeticion.insertar(cancionActual);
+                }
+                System.out.println("Loop 1 Canción Activado.");
+            } else {
+                btnRepetir.setStyle(estiloBotones); 
+                btnRepetir.setText("🔁"); // Ícono normal
+                System.out.println("Loop Desactivado.");
+            }
+        });
+
         // --- EVENTOS DE INTERFAZ GENERALES ---
-        
         tablaCanciones.setOnMouseClicked(evento -> {
             if (evento.getButton().equals(MouseButton.PRIMARY) && evento.getClickCount() == 2) {
                 cancionActual = tablaCanciones.getSelectionModel().getSelectedItem();
                 if (cancionActual != null) {
+                    // Si el loop está prendido, actualizamos el nodo circular a la nueva canción seleccionada
+                    if (modoRepeticion) {
+                        listaRepeticion = new ListaCircular();
+                        listaRepeticion.insertar(cancionActual);
+                    }
+                    
                     reproductor.detener();
                     reproductor.reproducir(cancionActual.getRuta());
                     btnPlayPausa.setText("⏸ Pausa");
@@ -233,6 +259,10 @@ public class AppGUI extends Application {
                 listaOriginalCanciones = lector.getCancionesCargadas();
                 listaObservableCanciones = FXCollections.observableArrayList(listaOriginalCanciones);
                 tablaCanciones.setItems(listaObservableCanciones);
+                
+                modoRepeticion = false;
+                btnRepetir.setStyle(estiloBotones);
+                btnRepetir.setText("🔁");
             }
         });
 
@@ -299,6 +329,10 @@ public class AppGUI extends Application {
                     if (!listaObservableCola.isEmpty()) {
                         cancionActual = listaObservableCola.remove(0); 
                         tablaCanciones.getSelectionModel().select(cancionActual);
+                        if (modoRepeticion) {
+                            listaRepeticion = new ListaCircular();
+                            listaRepeticion.insertar(cancionActual);
+                        }
                     } else {
                         cancionActual = tablaCanciones.getSelectionModel().getSelectedItem();
                     }
@@ -313,8 +347,18 @@ public class AppGUI extends Application {
             }
         });
 
+        // --- BOTONES CON LÓGICA DE LISTA CIRCULAR INTEGRADA ---
         btnSiguiente.setOnAction(evento -> {
-            if (!listaObservableCola.isEmpty()) {
+            if (modoRepeticion && listaRepeticion != null) {
+                // LÓGICA CIRCULAR (Loop): Siempre nos devuelve la misma canción encapsulada
+                cancionActual = listaRepeticion.irSiguiente();
+                if (cancionActual != null) {
+                    reproductor.detener();
+                    reproductor.reproducir(cancionActual.getRuta());
+                    btnPlayPausa.setText("⏸ Pausa");
+                    estaReproduciendo = true;
+                }
+            } else if (!listaObservableCola.isEmpty()) {
                 cancionActual = listaObservableCola.remove(0); 
                 tablaCanciones.getSelectionModel().select(cancionActual);
                 
@@ -337,19 +381,29 @@ public class AppGUI extends Application {
         });
 
         btnAnterior.setOnAction(evento -> {
-            int indiceActual = tablaCanciones.getSelectionModel().getSelectedIndex();
-            if (indiceActual > 0) {
-                tablaCanciones.getSelectionModel().select(indiceActual - 1);
-                cancionActual = tablaCanciones.getSelectionModel().getSelectedItem();
-                
-                reproductor.detener();
-                reproductor.reproducir(cancionActual.getRuta());
-                btnPlayPausa.setText("⏸ Pausa");
-                estaReproduciendo = true;
+            if (modoRepeticion && listaRepeticion != null) {
+                // LÓGICA CIRCULAR HACIA ATRÁS: Sigue siendo la misma canción en el ciclo cerrado
+                cancionActual = listaRepeticion.irAnterior();
+                if (cancionActual != null) {
+                    reproductor.detener();
+                    reproductor.reproducir(cancionActual.getRuta());
+                    btnPlayPausa.setText("⏸ Pausa");
+                    estaReproduciendo = true;
+                }
+            } else {
+                int indiceActual = tablaCanciones.getSelectionModel().getSelectedIndex();
+                if (indiceActual > 0) {
+                    tablaCanciones.getSelectionModel().select(indiceActual - 1);
+                    cancionActual = tablaCanciones.getSelectionModel().getSelectedItem();
+                    
+                    reproductor.detener();
+                    reproductor.reproducir(cancionActual.getRuta());
+                    btnPlayPausa.setText("⏸ Pausa");
+                    estaReproduciendo = true;
+                }
             }
         });
 
-        // --- Ensamblar y Mostrar ---
         layoutPrincipal.setLeft(menuIzquierdo);
         layoutPrincipal.setCenter(panelCentral);
         layoutPrincipal.setRight(panelDerecho);

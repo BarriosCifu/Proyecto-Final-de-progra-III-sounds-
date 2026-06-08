@@ -123,29 +123,39 @@ public class AppGUI extends Application {
         
         panelDerecho.getChildren().addAll(tituloCola, tablaCola, botonesCola);
 
-        // --- 4. PANEL INFERIOR (Barra de progreso + Botones) ---
+        // --- 4. PANEL INFERIOR (Barra COMPACTA Turquesa + Botones) ---
         VBox panelInferior = new VBox(10);
         panelInferior.setPrefHeight(100);
         panelInferior.setAlignment(Pos.CENTER);
         panelInferior.setStyle("-fx-background-color: #181818; -fx-border-color: #282828; -fx-border-width: 1 0 0 0; -fx-padding: 10px 30px;");
         
-        // Fila 1: Barra de progreso estilo Spotify
+        // Fila 1: Barra de progreso COMPACTA Y TURQUESA
         HBox contenedorProgreso = new HBox(15);
         contenedorProgreso.setAlignment(Pos.CENTER);
         
         Label lblTiempoActual = new Label("0:00");
         lblTiempoActual.setStyle("-fx-text-fill: #b3b3b3; -fx-font-size: 12px;");
         
+        // Creación del Slider (barra de progreso)
         Slider sliderProgreso = new Slider();
-        HBox.setHgrow(sliderProgreso, Priority.ALWAYS); // Hace que la barra ocupe todo el espacio central
-        sliderProgreso.setStyle("-fx-control-inner-background: #535353;"); // Estilo oscuro básico
+        
+        // --- KEY SIZE CHANGE: NO USAR setHgrow(Priority.ALWAYS) ---
+        // Al NO expandirse, el HBox que lo contiene se centrará perfectamente
+        // y la barra tendrá un ancho fijo y estilizado en el centro.
+        sliderProgreso.setPrefWidth(350); // ancho estilizado según tu imagen marcada.
+        sliderProgreso.setMinWidth(250); // No permitir que se encoja mucho.
+        
+        // --- CAMBIO DE ESTILO: Color Turquesa/Cyan vibrante ---
+        sliderProgreso.setStyle(
+            "-fx-base: #181818;" + // Color de fondo del track (gris oscuro para que se vea la barra base)
+            "-fx-accent: #30D5C8;" // Color vibrante del track relleno (Turquesa/Cyan).
+        );
         
         Label lblTiempoTotal = new Label("0:00");
         lblTiempoTotal.setStyle("-fx-text-fill: #b3b3b3; -fx-font-size: 12px;");
         
         contenedorProgreso.getChildren().addAll(lblTiempoActual, sliderProgreso, lblTiempoTotal);
 
-        // Fila 2: Botones de reproducción
         HBox barraBotones = new HBox(30); 
         barraBotones.setAlignment(Pos.CENTER);
         
@@ -160,7 +170,6 @@ public class AppGUI extends Application {
         
         barraBotones.getChildren().addAll(btnAnterior, btnPlayPausa, btnSiguiente);
         
-        // Agregamos ambas filas al panel inferior
         panelInferior.getChildren().addAll(contenedorProgreso, barraBotones);
 
         // --- EVENTOS DE INTERFAZ ---
@@ -302,7 +311,7 @@ public class AppGUI extends Application {
         layoutPrincipal.setLeft(menuIzquierdo);
         layoutPrincipal.setCenter(panelCentral);
         layoutPrincipal.setRight(panelDerecho);
-        layoutPrincipal.setBottom(panelInferior); // <--- Actualizado al nuevo panel con progreso
+        layoutPrincipal.setBottom(panelInferior); 
 
         Scene escena = new Scene(layoutPrincipal, 1150, 700); 
         escena.getRoot().setStyle("-fx-base: #121212; -fx-control-inner-background: #121212; -fx-table-cell-border-color: transparent; -fx-table-header-background-color: #282828;");

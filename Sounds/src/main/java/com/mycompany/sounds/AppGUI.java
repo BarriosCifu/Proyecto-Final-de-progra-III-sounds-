@@ -1,6 +1,7 @@
 
 package com.mycompany.sounds;
 
+
 import java.io.File;
 import java.util.List;
 import javafx.application.Application;
@@ -12,6 +13,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
+import javafx.scene.control.TextField;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
@@ -24,11 +26,15 @@ public class AppGUI extends Application {
     // Variables globales
     private TableView<Cancion> tablaCanciones;
     private ObservableList<Cancion> listaObservableCanciones;
+    private List<Cancion> listaOriginalCanciones; // Para guardar la lista completa y poder restablecerla
     
-    // Reproductor, canción actual y nuestra nueva "bandera" de estado
+    // Reproductor y controles
     private Reproductor reproductor = new Reproductor();
     private Cancion cancionActual = null;
-    private boolean estaReproduciendo = false; // <-- Controla el estado del botón
+    private boolean estaReproduciendo = false;
+    
+    // Estructura de Datos para búsquedas ultrarrápidas
+    private ArbolAVL arbolBuscador = new ArbolAVL();
 
     @Override
     public void start(Stage escenarioPrincipal) {
@@ -48,12 +54,30 @@ public class AppGUI extends Application {
         
         menuIzquierdo.getChildren().addAll(textoMenu, btnCargarMusica);
 
-        // --- 2. PANEL CENTRAL ---
+        // --- 2. PANEL CENTRAL (Ahora con Barra de Búsqueda) ---
         VBox panelCentral = new VBox(10);
         panelCentral.setStyle("-fx-background-color: #121212; -fx-padding: 20px;");
         
+        // --- BARRA DE BÚSQUEDA ---
+        HBox barraBusqueda = new HBox(10);
+        barraBusqueda.setAlignment(Pos.CENTER_LEFT);
+        
+        TextField txtBuscar = new TextField();
+        txtBuscar.setPromptText("Escribe el nombre exacto de la canción...");
+        txtBuscar.setPrefWidth(300);
+        txtBuscar.setStyle("-fx-background-color: #282828; -fx-text-fill: white; -fx-prompt-text-fill: gray;");
+        
+        Button btnBuscar = new Button("🔍 Buscar");
+        btnBuscar.setStyle("-fx-background-color: #1db954; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
+        
+        Button btnRestablecer = new Button("Restablecer");
+        btnRestablecer.setStyle("-fx-background-color: #333333; -fx-text-fill: white; -fx-cursor: hand;");
+        
+        barraBusqueda.getChildren().addAll(txtBuscar, btnBuscar, btnRestablecer);
+        // -------------------------
+
         Label tituloCentral = new Label("Biblioteca Principal");
-        tituloCentral.setStyle("-fx-text-fill: white; -fx-font-size: 24px; -fx-font-weight: bold;");
+        tituloCentral.setStyle("-fx-text-fill: white; -fx-font-size: 24px; -fx-font-weight: bold; -fx-padding: 10px 0px 0px 0px;");
         
         tablaCanciones = new TableView<>();
         tablaCanciones.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
@@ -70,37 +94,35 @@ public class AppGUI extends Application {
         tablaCanciones.getColumns().addAll(colNombre, colArtista, colAlbum);
         VBox.setVgrow(tablaCanciones, javafx.scene.layout.Priority.ALWAYS);
         
-        panelCentral.getChildren().addAll(tituloCentral, tablaCanciones);
+        // Agregamos la barra de búsqueda al principio del panel
+        panelCentral.getChildren().addAll(barraBusqueda, tituloCentral, tablaCanciones);
 
         // --- 3. PANEL INFERIOR (Controles) ---
-        HBox barraReproduccion = new HBox(30); // Aumenté un poco el espacio para que respire
+        HBox barraReproduccion = new HBox(30); 
         barraReproduccion.setPrefHeight(90);
         barraReproduccion.setAlignment(Pos.CENTER);
         barraReproduccion.setStyle("-fx-background-color: #181818; -fx-border-color: #282828; -fx-border-width: 1 0 0 0;");
         
         Button btnAnterior = new Button("⏮");
-        Button btnPlayPausa = new Button("▶ Play"); // ¡Nuestro nuevo botón unificado!
+        Button btnPlayPausa = new Button("▶ Play"); 
         Button btnSiguiente = new Button("⏭");
         
         String estiloBotones = "-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 18px; -fx-cursor: hand;";
         btnAnterior.setStyle(estiloBotones);
         btnSiguiente.setStyle(estiloBotones);
-        
-        // Le damos un ancho mínimo al Play para que al cambiar a "Pausa" los otros botones no se muevan
         btnPlayPausa.setStyle(estiloBotones + "-fx-font-size: 22px; -fx-min-width: 110px;"); 
         
         barraReproduccion.getChildren().addAll(btnAnterior, btnPlayPausa, btnSiguiente);
 
         // --- EVENTOS DE INTERFAZ ---
         
-        // 1. Al seleccionar una canción en la tabla
         tablaCanciones.getSelectionModel().selectedItemProperty().addListener((observable, viejaSeleccion, nuevaSeleccion) -> {
             if (nuevaSeleccion != null) {
                 cancionActual = nuevaSeleccion;
             }
         });
         
-        // 2. Botón Cargar Música
+        // Botón Cargar Música (Modificado para llenar el Árbol AVL)
         btnCargarMusica.setOnAction(evento -> {
             DirectoryChooser selectorDirectorio = new DirectoryChooser();
             selectorDirectorio.setTitle("Selecciona la carpeta con tu música");
@@ -109,65 +131,82 @@ public class AppGUI extends Application {
             if (carpetaSeleccionada != null) {
                 LectorArchivos lector = new LectorArchivos();
                 lector.leerCarpetaRecursivamente(carpetaSeleccionada.getAbsolutePath());
-                List<Cancion> cancionesLeidas = lector.getCancionesCargadas();
+                listaOriginalCanciones = lector.getCancionesCargadas();
                 
-                listaObservableCanciones = FXCollections.observableArrayList(cancionesLeidas);
+                // Mostrar en la tabla
+                listaObservableCanciones = FXCollections.observableArrayList(listaOriginalCanciones);
                 tablaCanciones.setItems(listaObservableCanciones);
+                
+                // --- LLENAR EL ÁRBOL AVL ---
+                arbolBuscador = new ArbolAVL(); // Reiniciamos el árbol por si carga otra carpeta
+                for (Cancion c : listaOriginalCanciones) {
+                    arbolBuscador.insertar(c);
+                }
+                System.out.println("Árbol AVL balanceado con " + listaOriginalCanciones.size() + " canciones.");
+            }
+        });
+
+        // Eventos de Búsqueda
+        btnBuscar.setOnAction(evento -> {
+            String textoBusqueda = txtBuscar.getText().trim();
+            if (!textoBusqueda.isEmpty()) {
+                // Usamos la complejidad O(log n) del Árbol AVL para encontrar la canción al instante
+                Cancion resultado = arbolBuscador.buscar(textoBusqueda);
+                
+                if (resultado != null) {
+                    // Si la encuentra, la tabla ahora solo mostrará esa canción
+                    tablaCanciones.setItems(FXCollections.observableArrayList(resultado));
+                } else {
+                    // Si no la encuentra, vaciamos la tabla
+                    tablaCanciones.setItems(FXCollections.observableArrayList());
+                    System.out.println("Canción no encontrada.");
+                }
+            }
+        });
+
+        btnRestablecer.setOnAction(evento -> {
+            txtBuscar.clear();
+            if (listaOriginalCanciones != null) {
+                // Volvemos a mostrar toda la biblioteca
+                tablaCanciones.setItems(FXCollections.observableArrayList(listaOriginalCanciones));
             }
         });
         
-        // 3. Botón Play / Pausa (La lógica del toggle)
+        // Botones de Reproducción
         btnPlayPausa.setOnAction(evento -> {
             if (cancionActual != null) {
                 if (estaReproduciendo) {
-                    // Si está sonando, lo detenemos y cambiamos la cara del botón a Play
                     reproductor.detener();
                     btnPlayPausa.setText("▶ Play");
                     estaReproduciendo = false;
-                    System.out.println("Reproducción detenida.");
                 } else {
-                    // Si está detenido, aseguramos que todo se apague, le damos play y cambiamos a Pausa
                     reproductor.detener(); 
                     reproductor.reproducir(cancionActual.getRuta());
                     btnPlayPausa.setText("⏸ Pausa");
                     estaReproduciendo = true;
-                    System.out.println("Sonando: " + cancionActual.getNombre());
                 }
-            } else {
-                System.out.println("Por favor, selecciona una canción de la tabla primero.");
-            }
-        });
-        // 4. Botón Siguiente (⏭)
-        btnSiguiente.setOnAction(evento -> {
-            int indiceActual = tablaCanciones.getSelectionModel().getSelectedIndex();
-            // Verificamos que no estemos en la última canción de la lista
-            if (indiceActual >= 0 && indiceActual < tablaCanciones.getItems().size() - 1) {
-                // Seleccionamos la siguiente fila en la tabla
-                tablaCanciones.getSelectionModel().select(indiceActual + 1);
-                
-                // Actualizamos la bandera y hacemos que suene
-                reproductor.detener();
-                reproductor.reproducir(cancionActual.getRuta());
-                btnPlayPausa.setText("⏸ Pausa");
-                estaReproduciendo = true;
-                System.out.println("Saltando a la siguiente: " + cancionActual.getNombre());
             }
         });
 
-        // 5. Botón Anterior (⏮)
-        btnAnterior.setOnAction(evento -> {
+        btnSiguiente.setOnAction(evento -> {
             int indiceActual = tablaCanciones.getSelectionModel().getSelectedIndex();
-            // Verificamos que no estemos en la primera canción (índice 0)
-            if (indiceActual > 0) {
-                // Seleccionamos la fila anterior en la tabla
-                tablaCanciones.getSelectionModel().select(indiceActual - 1);
-                
-                // Actualizamos la bandera y hacemos que suene
+            if (indiceActual >= 0 && indiceActual < tablaCanciones.getItems().size() - 1) {
+                tablaCanciones.getSelectionModel().select(indiceActual + 1);
                 reproductor.detener();
                 reproductor.reproducir(cancionActual.getRuta());
                 btnPlayPausa.setText("⏸ Pausa");
                 estaReproduciendo = true;
-                System.out.println("Regresando a: " + cancionActual.getNombre());
+            }
+        });
+
+        btnAnterior.setOnAction(evento -> {
+            int indiceActual = tablaCanciones.getSelectionModel().getSelectedIndex();
+            if (indiceActual > 0) {
+                tablaCanciones.getSelectionModel().select(indiceActual - 1);
+                reproductor.detener();
+                reproductor.reproducir(cancionActual.getRuta());
+                btnPlayPausa.setText("⏸ Pausa");
+                estaReproduciendo = true;
             }
         });
 

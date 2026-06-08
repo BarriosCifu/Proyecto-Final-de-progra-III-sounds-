@@ -1,6 +1,5 @@
 package com.mycompany.sounds;
 
-
 import java.io.File;
 import java.util.Collections;
 import java.util.List;
@@ -41,10 +40,12 @@ public class AppGUI extends Application {
     private Cancion cancionActual = null;
     private boolean estaReproduciendo = false;
     
-    // Controles de progreso globales para el Timeline
     private Slider sliderProgreso;
     private Label lblTiempoActual;
     private Label lblTiempoTotal;
+    
+    // NUEVA VARIABLE: Nos avisa si el usuario está tocando la barra
+    private boolean arrastrandoSlider = false;
 
     @Override
     public void start(Stage escenarioPrincipal) {
@@ -147,9 +148,8 @@ public class AppGUI extends Application {
         sliderProgreso = new Slider();
         sliderProgreso.setPrefWidth(350); 
         sliderProgreso.setMinWidth(250); 
-        sliderProgreso.setStyle("-fx-base: #181818; -fx-accent: #30D5C8;");
-        // Deshabilitamos el arrastre manual momentáneamente ya que JLayer requiere lógica compleja para adelantar canciones
-        sliderProgreso.setMouseTransparent(true); 
+        sliderProgreso.setStyle("-fx-base: #181818; -fx-accent: #30D5C8; -fx-cursor: hand;");
+        // ¡Ya no bloqueamos el slider!
         
         lblTiempoTotal = new Label("0:00");
         lblTiempoTotal.setStyle("-fx-text-fill: #b3b3b3; -fx-font-size: 12px;");
@@ -169,18 +169,37 @@ public class AppGUI extends Application {
         btnPlayPausa.setStyle(estiloBotones + "-fx-font-size: 22px; -fx-min-width: 110px;"); 
         
         barraBotones.getChildren().addAll(btnAnterior, btnPlayPausa, btnSiguiente);
-        
         panelInferior.getChildren().addAll(contenedorProgreso, barraBotones);
 
+        // --- EVENTOS DEL SLIDER (ARRASTRAR Y SOLTAR) ---
+        
+        // Cuando haces clic para empezar a arrastrar, pausamos la actualización automática
+        sliderProgreso.setOnMousePressed(evento -> {
+            arrastrandoSlider = true;
+        });
+
+        // Cuando sueltas el clic en una parte de la barra, le decimos al reproductor que salte
+        sliderProgreso.setOnMouseReleased(evento -> {
+            if (cancionActual != null) {
+                double porcentaje = sliderProgreso.getValue() / 100.0; // Obtenemos un valor de 0.0 a 1.0
+                reproductor.saltarA(porcentaje);
+                btnPlayPausa.setText("⏸ Pausa");
+                estaReproduciendo = true;
+            }
+            arrastrandoSlider = false; // Permitimos que la barra vuelva a moverse sola
+        });
+
         // --- TIMELINE: EL MOTOR DE LA BARRA DE PROGRESO ---
-        // Este bloque se ejecuta en bucle de manera independiente cada 200 milisegundos
         Timeline temporizador = new Timeline(new KeyFrame(Duration.millis(200), evento -> {
             if (reproductor.isReproduciendo()) {
-                double progreso = reproductor.getProgreso(); // Traemos el valor de 0.0 a 1.0
-                sliderProgreso.setValue(progreso * 100); // Lo adaptamos a escala de Slider (0 a 100)
-
+                double progreso = reproductor.getProgreso(); 
                 int totalSegundos = reproductor.getDuracionEstimadaSegundos();
                 int segundosActuales = (int) (totalSegundos * progreso);
+
+                // SOLO movemos la barra automáticamente si tú no la estás arrastrando
+                if (!arrastrandoSlider) {
+                    sliderProgreso.setValue(progreso * 100); 
+                }
 
                 lblTiempoActual.setText(formatearTiempo(segundosActuales));
                 lblTiempoTotal.setText(formatearTiempo(totalSegundos));
@@ -189,7 +208,7 @@ public class AppGUI extends Application {
         temporizador.setCycleCount(Timeline.INDEFINITE);
         temporizador.play();
 
-        // --- EVENTOS DE INTERFAZ ---
+        // --- EVENTOS DE INTERFAZ GENERALES ---
         
         tablaCanciones.setOnMouseClicked(evento -> {
             if (evento.getButton().equals(MouseButton.PRIMARY) && evento.getClickCount() == 2) {
@@ -268,12 +287,10 @@ public class AppGUI extends Application {
         
         btnPlayPausa.setOnAction(evento -> {
             if (estaReproduciendo) {
-                // Al pausar usamos el nuevo método
                 reproductor.pausar();
                 btnPlayPausa.setText("▶ Play");
                 estaReproduciendo = false;
             } else {
-                // Si la canción estaba pausada, la continuamos
                 if (cancionActual != null && reproductor.getProgreso() > 0 && reproductor.getProgreso() < 1) {
                     reproductor.continuar();
                     btnPlayPausa.setText("⏸ Pausa");
@@ -351,7 +368,6 @@ public class AppGUI extends Application {
         escenarioPrincipal.show();
     }
 
-    // Método de utilidad para convertir segundos (ej: 65) a formato reloj (ej: 1:05)
     private String formatearTiempo(int segundosTotales) {
         int minutos = segundosTotales / 60;
         int segundos = segundosTotales % 60;

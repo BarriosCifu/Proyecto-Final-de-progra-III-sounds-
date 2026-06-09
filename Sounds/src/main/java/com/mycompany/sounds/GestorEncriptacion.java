@@ -9,7 +9,7 @@ import java.io.PrintWriter;
  */
 public class GestorEncriptacion {
    private static final int LLAVE = 5; 
-   private static String cifrar(String texto) {
+   public static String cifrar(String texto) {
    StringBuilder resultado = new StringBuilder();
    for (char c : texto.toCharArray()) {
     resultado.append((char) (c + LLAVE));

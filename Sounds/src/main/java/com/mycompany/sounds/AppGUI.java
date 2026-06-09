@@ -1,6 +1,10 @@
 package com.mycompany.sounds;
 
+import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -58,27 +62,22 @@ public class AppGUI extends Application {
     private Label lblTiempoTotal;
     private boolean arrastrandoSlider = false;
 
-    // --- ESTRUCTURAS DE DATOS ---
     private boolean modoRepeticion = false;
     private ListaCircular listaRepeticion = new ListaCircular(); 
     private Pila historial = new Pila(); 
 
-    // --- PLAYLISTS Y FAVORITOS ---
     private ObservableList<String> nombresPlaylists = FXCollections.observableArrayList();
     private ListView<String> vistaPlaylists;
     private Map<String, ListaSimple> mapaPlaylists = new HashMap<>();
     private String playlistSeleccionada = null;
     private Label tituloCentral;
     private Set<String> cancionesFavoritas = new HashSet<>();
-    
-    // --- NUEVA VARIABLE: MODO ALEATORIO ---
     private boolean modoAleatorio = false;
 
     @Override
     public void start(Stage escenarioPrincipal) {
         BorderPane layoutPrincipal = new BorderPane();
 
-        // --- INICIALIZACIÓN DE PLAYLIST POR DEFECTO ---
         nombresPlaylists.add("Mis me gusta");
         mapaPlaylists.put("Mis me gusta", new ListaSimple());
 
@@ -95,8 +94,19 @@ public class AppGUI extends Application {
         btnCargarMusica.setPrefWidth(180);
         
         Label textoPlaylists = new Label("MIS PLAYLISTS");
-        textoPlaylists.setStyle("-fx-text-fill: #b3b3b3; -fx-font-weight: bold; -fx-font-size: 12px; -fx-padding: 20px 0 0 0;");
+        textoPlaylists.setStyle("-fx-text-fill: #b3b3b3; -fx-font-weight: bold; -fx-font-size: 12px; -fx-padding: 10px 0 0 0;");
         
+        // --- NUEVOS BOTONES DE GUARDAR Y CARGAR ---
+        HBox barraPersistencia = new HBox(10);
+        Button btnGuardar = new Button("💾 Guardar");
+        Button btnCargar = new Button("📂 Cargar");
+        String estiloPersistencia = "-fx-background-color: #282828; -fx-text-fill: white; -fx-font-size: 11px; -fx-cursor: hand; -fx-background-radius: 5;";
+        btnGuardar.setStyle(estiloPersistencia);
+        btnCargar.setStyle(estiloPersistencia);
+        btnGuardar.setPrefWidth(85);
+        btnCargar.setPrefWidth(85);
+        barraPersistencia.getChildren().addAll(btnGuardar, btnCargar);
+
         Button btnNuevaPlaylist = new Button("+ Nueva Playlist");
         btnNuevaPlaylist.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-alignment: center-left; -fx-padding: 0;");
         
@@ -104,7 +114,91 @@ public class AppGUI extends Application {
         vistaPlaylists.setStyle("-fx-background-color: transparent; -fx-control-inner-background: #000000; -fx-border-color: transparent;");
         VBox.setVgrow(vistaPlaylists, Priority.ALWAYS); 
         
-        menuIzquierdo.getChildren().addAll(textoMenu, btnCargarMusica, textoPlaylists, btnNuevaPlaylist, vistaPlaylists);
+        menuIzquierdo.getChildren().addAll(textoMenu, btnCargarMusica, textoPlaylists, barraPersistencia, btnNuevaPlaylist, vistaPlaylists);
+
+        // --- LÓGICA DE GUARDAR (ENCRIPTADO) ---
+        btnGuardar.setOnAction(evento -> {
+            try (PrintWriter writer = new PrintWriter(new FileWriter("mis_playlists.txt"))) {
+                for (Map.Entry<String, ListaSimple> entry : mapaPlaylists.entrySet()) {
+                    String nombreLista = entry.getKey();
+                    NodoLista actual = entry.getValue().getCabeza();
+                    
+                    while (actual != null) {
+                        Cancion c = actual.getCancion();
+                        // Estructura: NombreLista||NombreCancion||Artista||Album||Ruta
+                        String datosPlanos = nombreLista + "||" + c.getNombre() + "||" + c.getArtista() + "||" + c.getAlbum() + "||" + c.getRuta();
+                        
+                        // LLAMADA A TU MÉTODO DE ENCRIPTACIÓN
+                        String lineaCifrada = GestorEncriptacion.cifrar(datosPlanos);
+                        writer.println(lineaCifrada);
+                        
+                        actual = actual.getSiguiente();
+                    }
+                }
+                System.out.println("Playlists guardadas y cifradas exitosamente en 'mis_playlists.txt'");
+            } catch (Exception e) {
+                System.out.println("Error al guardar las playlists: " + e.getMessage());
+            }
+        });
+
+        // --- LÓGICA DE CARGAR (DESENCRIPTADO) ---
+        btnCargar.setOnAction(evento -> {
+            File archivo = new File("mis_playlists.txt");
+            if (!archivo.exists()) {
+                System.out.println("No hay archivo de playlists guardado.");
+                return;
+            }
+
+            try (BufferedReader reader = new BufferedReader(new FileReader(archivo))) {
+                String lineaCifrada;
+                
+                // Limpiamos las estructuras antes de cargar
+                mapaPlaylists.clear();
+                nombresPlaylists.clear();
+                cancionesFavoritas.clear();
+                
+                // Aseguramos que "Mis me gusta" siempre exista
+                nombresPlaylists.add("Mis me gusta");
+                mapaPlaylists.put("Mis me gusta", new ListaSimple());
+
+                while ((lineaCifrada = reader.readLine()) != null) {
+                    // LLAMADA A TU MÉTODO DE DESENCRIPTACIÓN
+                    String datosPlanos = GestorEncriptacion.descifrar(lineaCifrada);
+                    String[] partes = datosPlanos.split("\\|\\|");
+                    
+                    if (partes.length == 5) {
+                        String nombreLista = partes[0];
+                        
+                        // Reconstruimos el objeto Cancion
+                        Cancion c = new Cancion();
+                        c.setNombre(partes[1]);
+                        c.setArtista(partes[2]);
+                        c.setAlbum(partes[3]);
+                        c.setRuta(partes[4]);
+                        
+                        // Si la playlist no existe en el ListView, la creamos
+                        if (!mapaPlaylists.containsKey(nombreLista)) {
+                            nombresPlaylists.add(nombreLista);
+                            mapaPlaylists.put(nombreLista, new ListaSimple());
+                        }
+                        
+                        // Insertamos en tu Lista Simple
+                        mapaPlaylists.get(nombreLista).insertar(c);
+                        
+                        // Si es favorita, encendemos la estrella
+                        if (nombreLista.equals("Mis me gusta")) {
+                            cancionesFavoritas.add(c.getRuta());
+                        }
+                    }
+                }
+                
+                // Refrescamos la vista para que aparezcan
+                tablaCanciones.refresh();
+                System.out.println("Playlists descifradas y cargadas con éxito.");
+            } catch (Exception e) {
+                System.out.println("Error al cargar las playlists: " + e.getMessage());
+            }
+        });
 
         // --- 2. PANEL CENTRAL ---
         VBox panelCentral = new VBox(10);
@@ -129,7 +223,6 @@ public class AppGUI extends Application {
         tablaCanciones = new TableView<>();
         tablaCanciones.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         
-        // --- COLUMNA: ESTRELLA DE FAVORITOS ---
         TableColumn<Cancion, String> colFavorita = new TableColumn<>("");
         colFavorita.setPrefWidth(45);
         colFavorita.setResizable(false);
@@ -174,7 +267,6 @@ public class AppGUI extends Application {
             };
         });
 
-        // --- COLUMNAS NORMALES ---
         TableColumn<Cancion, String> colNombre = new TableColumn<>("Título");
         colNombre.setCellValueFactory(new PropertyValueFactory<>("nombre"));
         TableColumn<Cancion, String> colArtista = new TableColumn<>("Artista");
@@ -185,7 +277,6 @@ public class AppGUI extends Application {
         tablaCanciones.getColumns().addAll(colFavorita, colNombre, colArtista, colAlbum);
         VBox.setVgrow(tablaCanciones, Priority.ALWAYS);
         
-        // --- MENÚ CONTEXTUAL (CLIC DERECHO) ---
         ContextMenu menuContextual = new ContextMenu();
         menuContextual.setStyle("-fx-base: #282828; -fx-control-inner-background: #282828; -fx-text-fill: white;");
         
@@ -316,8 +407,7 @@ public class AppGUI extends Application {
         HBox barraBotones = new HBox(25); 
         barraBotones.setAlignment(Pos.CENTER);
         
-        // --- BOTONES INFERIORES ACTUALIZADOS ---
-        Button btnAleatorio = new Button("🔀"); // NUEVO BOTÓN ALEATORIO
+        Button btnAleatorio = new Button("🔀"); 
         Button btnRepetir = new Button("🔁");
         Button btnAnterior = new Button("⏮");
         Button btnPlayPausa = new Button("▶"); 
@@ -330,7 +420,6 @@ public class AppGUI extends Application {
         btnSiguiente.setStyle(estiloBotones);
         btnPlayPausa.setStyle(estiloBotones + "-fx-font-size: 24px; -fx-min-width: 60px;"); 
         
-        // Ensamblamos la barra con el nuevo botón al principio
         barraBotones.getChildren().addAll(btnAleatorio, btnRepetir, btnAnterior, btnPlayPausa, btnSiguiente);
         panelInferior.getChildren().addAll(contenedorProgreso, barraBotones);
 
@@ -376,8 +465,6 @@ public class AppGUI extends Application {
             if (listaOriginalCanciones != null) {
                 tablaCanciones.setItems(FXCollections.observableArrayList(listaOriginalCanciones));
                 tablaCanciones.refresh();
-                
-                // Si el loop está prendido, recalculamos la lista circular con la biblioteca
                 if (modoRepeticion) reconstruirListaCircular();
             }
         });
@@ -417,38 +504,29 @@ public class AppGUI extends Application {
                 }
                 tablaCanciones.setItems(cancionesPlaylist);
                 tablaCanciones.refresh();
-                
-                // Si el loop está prendido, cargamos los elementos de esta playlist al círculo
                 if (modoRepeticion) reconstruirListaCircular();
             }
         });
 
-        // --- EVENTO CONFIGURAR MODO ALEATORIO (SHUFFLE) ---
         btnAleatorio.setOnAction(evento -> {
             modoAleatorio = !modoAleatorio;
             if (modoAleatorio) {
-                btnAleatorio.setStyle(estiloBotones + "-fx-text-fill: #1db954;"); // Verde encendido
-                System.out.println("Modo Aleatorio Activado.");
+                btnAleatorio.setStyle(estiloBotones + "-fx-text-fill: #1db954;"); 
             } else {
-                btnAleatorio.setStyle(estiloBotones); // Blanco normal
-                System.out.println("Modo Aleatorio Desactivado.");
+                btnAleatorio.setStyle(estiloBotones); 
             }
         });
 
-        // --- EVENTO CONFIGURAR MODO REPETICIÓN (LOOP PLAYLIST) ---
         btnRepetir.setOnAction(evento -> {
             modoRepeticion = !modoRepeticion;
             if (modoRepeticion) {
                 btnRepetir.setStyle(estiloBotones + "-fx-text-fill: #1db954;"); 
                 reconstruirListaCircular();
-                System.out.println("Loop de Playlist Activado.");
             } else {
                 btnRepetir.setStyle(estiloBotones); 
-                System.out.println("Loop Desactivado.");
             }
         });
 
-        // --- EVENTOS GENERALES ---
         tablaCanciones.setOnMouseClicked(evento -> {
             if (evento.getButton().equals(MouseButton.PRIMARY) && evento.getClickCount() == 2) {
                 Cancion seleccionada = tablaCanciones.getSelectionModel().getSelectedItem();
@@ -586,9 +664,7 @@ public class AppGUI extends Application {
             }
         });
 
-        // --- LÓGICA INTELIGENTE DE BOTÓN SIGUIENTE ---
         btnSiguiente.setOnAction(evento -> {
-            // Prioridad 1: Modo Aleatorio activo (Elige un track al azar del contexto actual)
             if (modoAleatorio && !tablaCanciones.getItems().isEmpty()) {
                 if (cancionActual != null) historial.push(cancionActual);
                 
@@ -604,9 +680,7 @@ public class AppGUI extends Application {
                 reproductor.reproducir(cancionActual.getRuta());
                 btnPlayPausa.setText("⏸");
                 estaReproduciendo = true;
-            } 
-            // Prioridad 2: Loop de Playlist Activo (Usa tu ListaCircular)
-            else if (modoRepeticion && listaRepeticion != null) {
+            } else if (modoRepeticion && listaRepeticion != null) {
                 if (cancionActual != null) historial.push(cancionActual);
                 cancionActual = listaRepeticion.irSiguiente();
                 if (cancionActual != null) {
@@ -616,9 +690,7 @@ public class AppGUI extends Application {
                     btnPlayPausa.setText("⏸");
                     estaReproduciendo = true;
                 }
-            } 
-            // Prioridad 3: Fila de Reproducción (Cola)
-            else if (!listaObservableCola.isEmpty()) {
+            } else if (!listaObservableCola.isEmpty()) {
                 if (cancionActual != null) historial.push(cancionActual);
                 cancionActual = listaObservableCola.remove(0); 
                 tablaCanciones.getSelectionModel().select(cancionActual);
@@ -627,9 +699,7 @@ public class AppGUI extends Application {
                 reproductor.reproducir(cancionActual.getRuta());
                 btnPlayPausa.setText("⏸");
                 estaReproduciendo = true;
-            } 
-            // Modo Normal Lineal
-            else {
+            } else {
                 int indiceActual = tablaCanciones.getSelectionModel().getSelectedIndex();
                 if (indiceActual >= 0 && indiceActual < tablaCanciones.getItems().size() - 1) {
                     if (cancionActual != null) historial.push(cancionActual);
@@ -645,9 +715,7 @@ public class AppGUI extends Application {
             }
         });
 
-        // --- LÓGICA INTELIGENTE DE BOTÓN ANTERIOR ---
         btnAnterior.setOnAction(evento -> {
-            // El modo aleatorio y normal respetan el historial de la Pila para volver atrás con precisión
             if (modoAleatorio || !modoRepeticion) {
                 Cancion cancionAnterior = historial.pop();
                 if (cancionAnterior != null) {
@@ -660,9 +728,7 @@ public class AppGUI extends Application {
                 } else {
                     if (cancionActual != null) reproductor.saltarA(0.0);
                 }
-            } 
-            // Si el loop está encendido (y no aleatorio), retrocedemos de manera circular infinita
-            else if (modoRepeticion && listaRepeticion != null) {
+            } else if (modoRepeticion && listaRepeticion != null) {
                 cancionActual = listaRepeticion.irAnterior();
                 if (cancionActual != null) {
                     tablaCanciones.getSelectionModel().select(cancionActual);
@@ -693,7 +759,6 @@ public class AppGUI extends Application {
         escenarioPrincipal.show();
     }
 
-    // --- MÉTODOS AUXILIARES PARA EL MANEJO CIRCULAR ---
     private void reconstruirListaCircular() {
         listaRepeticion = new ListaCircular();
         for (Cancion c : tablaCanciones.getItems()) {

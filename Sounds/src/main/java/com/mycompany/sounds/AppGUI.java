@@ -96,7 +96,6 @@ public class AppGUI extends Application {
         Label textoPlaylists = new Label("MIS PLAYLISTS");
         textoPlaylists.setStyle("-fx-text-fill: #b3b3b3; -fx-font-weight: bold; -fx-font-size: 12px; -fx-padding: 10px 0 0 0;");
         
-        // --- NUEVOS BOTONES DE GUARDAR Y CARGAR ---
         HBox barraPersistencia = new HBox(10);
         Button btnGuardar = new Button("💾 Guardar");
         Button btnCargar = new Button("📂 Cargar");
@@ -116,88 +115,44 @@ public class AppGUI extends Application {
         
         menuIzquierdo.getChildren().addAll(textoMenu, btnCargarMusica, textoPlaylists, barraPersistencia, btnNuevaPlaylist, vistaPlaylists);
 
-        // --- LÓGICA DE GUARDAR (ENCRIPTADO) ---
+        // --- LÓGICA DE GUARDAR Y CARGAR ---
         btnGuardar.setOnAction(evento -> {
             try (PrintWriter writer = new PrintWriter(new FileWriter("mis_playlists.txt"))) {
                 for (Map.Entry<String, ListaSimple> entry : mapaPlaylists.entrySet()) {
                     String nombreLista = entry.getKey();
                     NodoLista actual = entry.getValue().getCabeza();
-                    
                     while (actual != null) {
                         Cancion c = actual.getCancion();
-                        // Estructura: NombreLista||NombreCancion||Artista||Album||Ruta
                         String datosPlanos = nombreLista + "||" + c.getNombre() + "||" + c.getArtista() + "||" + c.getAlbum() + "||" + c.getRuta();
-                        
-                        // LLAMADA A TU MÉTODO DE ENCRIPTACIÓN
                         String lineaCifrada = GestorEncriptacion.cifrar(datosPlanos);
                         writer.println(lineaCifrada);
-                        
                         actual = actual.getSiguiente();
                     }
                 }
-                System.out.println("Playlists guardadas y cifradas exitosamente en 'mis_playlists.txt'");
-            } catch (Exception e) {
-                System.out.println("Error al guardar las playlists: " + e.getMessage());
-            }
+            } catch (Exception e) { System.out.println("Error al guardar: " + e.getMessage()); }
         });
 
-        // --- LÓGICA DE CARGAR (DESENCRIPTADO) ---
         btnCargar.setOnAction(evento -> {
             File archivo = new File("mis_playlists.txt");
-            if (!archivo.exists()) {
-                System.out.println("No hay archivo de playlists guardado.");
-                return;
-            }
-
+            if (!archivo.exists()) return;
             try (BufferedReader reader = new BufferedReader(new FileReader(archivo))) {
                 String lineaCifrada;
-                
-                // Limpiamos las estructuras antes de cargar
-                mapaPlaylists.clear();
-                nombresPlaylists.clear();
-                cancionesFavoritas.clear();
-                
-                // Aseguramos que "Mis me gusta" siempre exista
-                nombresPlaylists.add("Mis me gusta");
-                mapaPlaylists.put("Mis me gusta", new ListaSimple());
-
+                mapaPlaylists.clear(); nombresPlaylists.clear(); cancionesFavoritas.clear();
+                nombresPlaylists.add("Mis me gusta"); mapaPlaylists.put("Mis me gusta", new ListaSimple());
                 while ((lineaCifrada = reader.readLine()) != null) {
-                    // LLAMADA A TU MÉTODO DE DESENCRIPTACIÓN
                     String datosPlanos = GestorEncriptacion.descifrar(lineaCifrada);
                     String[] partes = datosPlanos.split("\\|\\|");
-                    
                     if (partes.length == 5) {
                         String nombreLista = partes[0];
-                        
-                        // Reconstruimos el objeto Cancion
                         Cancion c = new Cancion();
-                        c.setNombre(partes[1]);
-                        c.setArtista(partes[2]);
-                        c.setAlbum(partes[3]);
-                        c.setRuta(partes[4]);
-                        
-                        // Si la playlist no existe en el ListView, la creamos
-                        if (!mapaPlaylists.containsKey(nombreLista)) {
-                            nombresPlaylists.add(nombreLista);
-                            mapaPlaylists.put(nombreLista, new ListaSimple());
-                        }
-                        
-                        // Insertamos en tu Lista Simple
+                        c.setNombre(partes[1]); c.setArtista(partes[2]); c.setAlbum(partes[3]); c.setRuta(partes[4]);
+                        if (!mapaPlaylists.containsKey(nombreLista)) { nombresPlaylists.add(nombreLista); mapaPlaylists.put(nombreLista, new ListaSimple()); }
                         mapaPlaylists.get(nombreLista).insertar(c);
-                        
-                        // Si es favorita, encendemos la estrella
-                        if (nombreLista.equals("Mis me gusta")) {
-                            cancionesFavoritas.add(c.getRuta());
-                        }
+                        if (nombreLista.equals("Mis me gusta")) cancionesFavoritas.add(c.getRuta());
                     }
                 }
-                
-                // Refrescamos la vista para que aparezcan
                 tablaCanciones.refresh();
-                System.out.println("Playlists descifradas y cargadas con éxito.");
-            } catch (Exception e) {
-                System.out.println("Error al cargar las playlists: " + e.getMessage());
-            }
+            } catch (Exception e) { System.out.println("Error al cargar: " + e.getMessage()); }
         });
 
         // --- 2. PANEL CENTRAL ---
@@ -226,44 +181,34 @@ public class AppGUI extends Application {
         TableColumn<Cancion, String> colFavorita = new TableColumn<>("");
         colFavorita.setPrefWidth(45);
         colFavorita.setResizable(false);
-
         colFavorita.setCellFactory(column -> {
             return new TableCell<Cancion, String>() {
                 @Override
                 protected void updateItem(String item, boolean empty) {
                     super.updateItem(item, empty);
                     if (empty || getTableRow() == null || getTableRow().getItem() == null) {
-                        setText(null);
-                        setGraphic(null);
+                        setText(null); setGraphic(null);
                     } else {
                         Cancion cancion = getTableRow().getItem();
                         if (cancionesFavoritas.contains(cancion.getRuta())) {
-                            setText("⭐");
-                            setStyle("-fx-text-fill: #FFD700; -fx-alignment: CENTER; -fx-cursor: hand; -fx-font-size: 16px;");
+                            setText("⭐"); setStyle("-fx-text-fill: #FFD700; -fx-alignment: CENTER; -fx-cursor: hand; -fx-font-size: 16px;");
                         } else {
-                            setText("☆");
-                            setStyle("-fx-text-fill: #535353; -fx-alignment: CENTER; -fx-cursor: hand; -fx-font-size: 16px;");
+                            setText("☆"); setStyle("-fx-text-fill: #535353; -fx-alignment: CENTER; -fx-cursor: hand; -fx-font-size: 16px;");
                         }
                     }
                 }
-
-                {
-                    setOnMouseClicked(evento -> {
-                        if (getTableRow() != null && getTableRow().getItem() != null) {
-                            Cancion cancion = getTableRow().getItem();
-                            ListaSimple playlistFavoritos = mapaPlaylists.get("Mis me gusta");
-
-                            if (cancionesFavoritas.contains(cancion.getRuta())) {
-                                cancionesFavoritas.remove(cancion.getRuta());
-                                playlistFavoritos.eliminar(cancion.getNombre());
-                            } else {
-                                cancionesFavoritas.add(cancion.getRuta());
-                                playlistFavoritos.insertar(cancion);
-                            }
-                            tablaCanciones.refresh(); 
+                { setOnMouseClicked(evento -> {
+                    if (getTableRow() != null && getTableRow().getItem() != null) {
+                        Cancion cancion = getTableRow().getItem();
+                        ListaSimple playlistFavoritos = mapaPlaylists.get("Mis me gusta");
+                        if (cancionesFavoritas.contains(cancion.getRuta())) {
+                            cancionesFavoritas.remove(cancion.getRuta()); playlistFavoritos.eliminar(cancion.getNombre());
+                        } else {
+                            cancionesFavoritas.add(cancion.getRuta()); playlistFavoritos.insertar(cancion);
                         }
-                    });
-                }
+                        tablaCanciones.refresh(); 
+                    }
+                }); }
             };
         });
 
@@ -279,57 +224,27 @@ public class AppGUI extends Application {
         
         ContextMenu menuContextual = new ContextMenu();
         menuContextual.setStyle("-fx-base: #282828; -fx-control-inner-background: #282828; -fx-text-fill: white;");
-        
         MenuItem itemAñadirCola = new MenuItem("➕ Agregar a la fila de reproducción");
         MenuItem itemAñadirPlaylist = new MenuItem("🎵 Agregar a playlist...");
         MenuItem itemFavorito = new MenuItem("⭐ Guardar en Mis me gusta"); 
         SeparatorMenuItem separador = new SeparatorMenuItem();
         MenuItem itemEliminarPlaylist = new MenuItem("➖ Eliminar de esta playlist");
-        
         menuContextual.getItems().addAll(itemAñadirCola, itemAñadirPlaylist, itemFavorito, separador, itemEliminarPlaylist);
         tablaCanciones.setContextMenu(menuContextual);
+
+        itemAñadirCola.setOnAction(e -> { Cancion s = tablaCanciones.getSelectionModel().getSelectedItem(); if(s!=null) listaObservableCola.add(s); });
         
-        menuContextual.setOnShowing(evento -> {
-            itemEliminarPlaylist.setDisable(playlistSeleccionada == null);
-        });
-
-        itemAñadirCola.setOnAction(evento -> {
-            Cancion seleccionada = tablaCanciones.getSelectionModel().getSelectedItem();
-            if (seleccionada != null) {
-                listaObservableCola.add(seleccionada);
-            }
-        });
-
         itemAñadirPlaylist.setOnAction(evento -> {
             Cancion seleccionada = tablaCanciones.getSelectionModel().getSelectedItem();
             if (seleccionada != null) {
-                if (nombresPlaylists.size() <= 1) {
-                    return;
-                }
+                if (nombresPlaylists.size() <= 1) return;
                 ChoiceDialog<String> dialogo = new ChoiceDialog<>(nombresPlaylists.get(1), nombresPlaylists);
                 dialogo.setTitle("Añadir a Playlist");
-                dialogo.setHeaderText("Añadir '" + seleccionada.getNombre() + "' a:");
-                dialogo.setContentText("Selecciona tu Playlist:");
                 dialogo.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
-
-                Optional<String> resultado = dialogo.showAndWait();
-                resultado.ifPresent(nombrePlaylist -> {
+                dialogo.showAndWait().ifPresent(nombrePlaylist -> {
                     ListaSimple lista = mapaPlaylists.get(nombrePlaylist);
-                    if (lista != null) {
-                        lista.insertar(seleccionada); 
-                    }
+                    if (lista != null) lista.insertar(seleccionada); 
                 });
-            }
-        });
-        
-        itemFavorito.setOnAction(e -> {
-            Cancion c = tablaCanciones.getSelectionModel().getSelectedItem();
-            if (c != null) {
-                if(!cancionesFavoritas.contains(c.getRuta())){
-                    cancionesFavoritas.add(c.getRuta());
-                    mapaPlaylists.get("Mis me gusta").insertar(c);
-                    tablaCanciones.refresh();
-                }
             }
         });
 
@@ -337,15 +252,10 @@ public class AppGUI extends Application {
             Cancion seleccionada = tablaCanciones.getSelectionModel().getSelectedItem();
             if (seleccionada != null && playlistSeleccionada != null) {
                 ListaSimple lista = mapaPlaylists.get(playlistSeleccionada);
-                if (lista != null) {
-                    boolean eliminado = lista.eliminar(seleccionada.getNombre());
-                    if (eliminado) {
-                        if (playlistSeleccionada.equals("Mis me gusta")) {
-                            cancionesFavoritas.remove(seleccionada.getRuta());
-                        }
-                        vistaPlaylists.getSelectionModel().clearSelection();
-                        vistaPlaylists.getSelectionModel().select(playlistSeleccionada);
-                    }
+                if (lista != null && lista.eliminar(seleccionada.getNombre())) {
+                    if (playlistSeleccionada.equals("Mis me gusta")) cancionesFavoritas.remove(seleccionada.getRuta());
+                    vistaPlaylists.getSelectionModel().clearSelection();
+                    vistaPlaylists.getSelectionModel().select(playlistSeleccionada);
                 }
             }
         });
@@ -356,10 +266,8 @@ public class AppGUI extends Application {
         VBox panelDerecho = new VBox(10);
         panelDerecho.setPrefWidth(280);
         panelDerecho.setStyle("-fx-background-color: #000000; -fx-padding: 20px; -fx-border-color: #282828; -fx-border-width: 0 0 0 1;");
-        
         Label tituloCola = new Label("Siguiente en la fila");
         tituloCola.setStyle("-fx-text-fill: white; -fx-font-size: 16px; -fx-font-weight: bold;");
-        
         tablaCola = new TableView<>();
         tablaCola.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         TableColumn<Cancion, String> colNombreCola = new TableColumn<>("Canción");
@@ -367,19 +275,11 @@ public class AppGUI extends Application {
         tablaCola.getColumns().add(colNombreCola);
         tablaCola.setItems(listaObservableCola);
         VBox.setVgrow(tablaCola, Priority.ALWAYS);
-        
-        HBox botonesCola = new HBox(10);
-        botonesCola.setAlignment(Pos.CENTER);
-        Button btnQuitarCola = new Button("Quitar");
-        Button btnSubirCola = new Button("🔼");
-        Button btnBajarCola = new Button("🔽");
-        
+        HBox botonesCola = new HBox(10); botonesCola.setAlignment(Pos.CENTER);
+        Button btnQuitarCola = new Button("Quitar"); Button btnSubirCola = new Button("🔼"); Button btnBajarCola = new Button("🔽");
         String estiloBotonesCola = "-fx-background-color: #282828; -fx-text-fill: white; -fx-cursor: hand;";
-        btnQuitarCola.setStyle(estiloBotonesCola);
-        btnSubirCola.setStyle(estiloBotonesCola);
-        btnBajarCola.setStyle(estiloBotonesCola);
+        btnQuitarCola.setStyle(estiloBotonesCola); btnSubirCola.setStyle(estiloBotonesCola); btnBajarCola.setStyle(estiloBotonesCola);
         botonesCola.getChildren().addAll(btnQuitarCola, btnSubirCola, btnBajarCola);
-        
         panelDerecho.getChildren().addAll(tituloCola, tablaCola, botonesCola);
 
         // --- 4. PANEL INFERIOR CONTROLES ---
@@ -390,403 +290,101 @@ public class AppGUI extends Application {
         
         HBox contenedorProgreso = new HBox(15);
         contenedorProgreso.setAlignment(Pos.CENTER);
-        
-        lblTiempoActual = new Label("0:00");
-        lblTiempoActual.setStyle("-fx-text-fill: #b3b3b3; -fx-font-size: 12px;");
-        
-        sliderProgreso = new Slider();
-        sliderProgreso.setPrefWidth(350); 
-        sliderProgreso.setMinWidth(250); 
+        lblTiempoActual = new Label("0:00"); lblTiempoActual.setStyle("-fx-text-fill: #b3b3b3; -fx-font-size: 12px;");
+        sliderProgreso = new Slider(); sliderProgreso.setPrefWidth(350); sliderProgreso.setMinWidth(250); 
         sliderProgreso.setStyle("-fx-base: #181818; -fx-accent: #30D5C8; -fx-cursor: hand;");
-        
-        lblTiempoTotal = new Label("0:00");
-        lblTiempoTotal.setStyle("-fx-text-fill: #b3b3b3; -fx-font-size: 12px;");
-        
+        lblTiempoTotal = new Label("0:00"); lblTiempoTotal.setStyle("-fx-text-fill: #b3b3b3; -fx-font-size: 12px;");
         contenedorProgreso.getChildren().addAll(lblTiempoActual, sliderProgreso, lblTiempoTotal);
 
         HBox barraBotones = new HBox(25); 
         barraBotones.setAlignment(Pos.CENTER);
         
-        Button btnAleatorio = new Button("🔀"); 
-        Button btnRepetir = new Button("🔁");
-        Button btnAnterior = new Button("⏮");
-        Button btnPlayPausa = new Button("▶"); 
+        Button btnAleatorio = new Button("🔀"); Button btnRepetir = new Button("🔁");
+        Button btnAnterior = new Button("⏮"); Button btnPlayPausa = new Button("▶"); 
         Button btnSiguiente = new Button("⏭");
         
+        // --- BOTÓN DE FILA (ÍCONO) ---
+        Button btnVerFila = new Button(""); // Ícono de lista de FontAwesome
+        
         String estiloBotones = "-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 18px; -fx-cursor: hand;";
-        btnAleatorio.setStyle(estiloBotones);
-        btnRepetir.setStyle(estiloBotones);
-        btnAnterior.setStyle(estiloBotones);
-        btnSiguiente.setStyle(estiloBotones);
+        btnAleatorio.setStyle(estiloBotones); btnRepetir.setStyle(estiloBotones);
+        btnAnterior.setStyle(estiloBotones); btnSiguiente.setStyle(estiloBotones);
+        btnVerFila.setStyle(estiloBotones + "-fx-font-size: 16px;"); // Un poco más pequeño
         btnPlayPausa.setStyle(estiloBotones + "-fx-font-size: 24px; -fx-min-width: 60px;"); 
         
-        barraBotones.getChildren().addAll(btnAleatorio, btnRepetir, btnAnterior, btnPlayPausa, btnSiguiente);
+        // Agregamos el botón de fila al final de la barra derecha
+        barraBotones.getChildren().addAll(btnAleatorio, btnRepetir, btnAnterior, btnPlayPausa, btnSiguiente, btnVerFila);
         panelInferior.getChildren().addAll(contenedorProgreso, barraBotones);
 
-        // --- EVENTOS DEL SLIDER ---
-        sliderProgreso.setOnMousePressed(evento -> arrastrandoSlider = true);
-        sliderProgreso.setOnMouseReleased(evento -> {
-            if (cancionActual != null) {
-                double porcentaje = sliderProgreso.getValue() / 100.0; 
-                reproductor.saltarA(porcentaje);
-                btnPlayPausa.setText("⏸");
-                estaReproduciendo = true;
-            }
-            arrastrandoSlider = false; 
-        });
+        // --- LÓGICA GENERAL ---
+        sliderProgreso.setOnMousePressed(e -> arrastrandoSlider = true);
+        sliderProgreso.setOnMouseReleased(e -> { if(cancionActual!=null) reproductor.saltarA(sliderProgreso.getValue()/100.0); btnPlayPausa.setText("⏸"); estaReproduciendo=true; arrastrandoSlider=false; });
 
-        // --- TIMELINE ---
-        Timeline temporizador = new Timeline(new KeyFrame(Duration.millis(200), evento -> {
+        Timeline temporizador = new Timeline(new KeyFrame(Duration.millis(200), e -> {
             if (reproductor.isReproduciendo()) {
-                double progreso = reproductor.getProgreso(); 
-                int totalSegundos = reproductor.getDuracionEstimadaSegundos();
-                int segundosActuales = (int) (totalSegundos * progreso);
-
-                if (!arrastrandoSlider) {
-                    sliderProgreso.setValue(progreso * 100); 
-                }
-
-                lblTiempoActual.setText(formatearTiempo(segundosActuales));
-                lblTiempoTotal.setText(formatearTiempo(totalSegundos));
-                
-                if (progreso >= 0.99 && estaReproduciendo) {
-                    btnSiguiente.fire(); 
-                }
+                double p = reproductor.getProgreso(); 
+                int t = reproductor.getDuracionEstimadaSegundos();
+                if (!arrastrandoSlider) sliderProgreso.setValue(p * 100); 
+                lblTiempoActual.setText(formatearTiempo((int) (t * p)));
+                lblTiempoTotal.setText(formatearTiempo(t));
+                if (p >= 0.99 && estaReproduciendo) btnSiguiente.fire(); 
             }
         }));
-        temporizador.setCycleCount(Timeline.INDEFINITE);
-        temporizador.play();
+        temporizador.setCycleCount(Timeline.INDEFINITE); temporizador.play();
 
-        // --- EVENTO REGRESAR A BIBLIOTECA PRINCIPAL ---
-        textoMenu.setOnMouseClicked(evento -> {
-            vistaPlaylists.getSelectionModel().clearSelection();
-            playlistSeleccionada = null;
-            tituloCentral.setText("Biblioteca Principal");
-            if (listaOriginalCanciones != null) {
-                tablaCanciones.setItems(FXCollections.observableArrayList(listaOriginalCanciones));
-                tablaCanciones.refresh();
-                if (modoRepeticion) reconstruirListaCircular();
-            }
-        });
+        textoMenu.setOnMouseClicked(e -> { vistaPlaylists.getSelectionModel().clearSelection(); playlistSeleccionada = null; tituloCentral.setText("Biblioteca Principal"); if (listaOriginalCanciones != null) { tablaCanciones.setItems(FXCollections.observableArrayList(listaOriginalCanciones)); tablaCanciones.refresh(); } });
 
-        // --- EVENTO CREAR NUEVA PLAYLIST ---
-        btnNuevaPlaylist.setOnAction(evento -> {
-            TextInputDialog dialogo = new TextInputDialog();
-            dialogo.setTitle("Nueva Playlist");
-            dialogo.setHeaderText("Crear una nueva lista de reproducción");
-            dialogo.setContentText("Nombre de la Playlist:");
-            dialogo.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
+        btnNuevaPlaylist.setOnAction(e -> { TextInputDialog d = new TextInputDialog(); d.setTitle("Nueva Playlist"); d.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;"); d.showAndWait().ifPresent(n -> { if (!n.trim().isEmpty() && !nombresPlaylists.contains(n)) { nombresPlaylists.add(n); mapaPlaylists.put(n, new ListaSimple()); } }); });
 
-            Optional<String> resultado = dialogo.showAndWait();
-            resultado.ifPresent(nombre -> {
-                if (!nombre.trim().isEmpty() && !nombresPlaylists.contains(nombre)) {
-                    nombresPlaylists.add(nombre);
-                    mapaPlaylists.put(nombre, new ListaSimple()); 
-                }
-            });
-        });
+        btnAleatorio.setOnAction(e -> { modoAleatorio = !modoAleatorio; btnAleatorio.setStyle(estiloBotones + (modoAleatorio ? "-fx-text-fill: #1db954;" : "")); });
+        btnRepetir.setOnAction(e -> { modoRepeticion = !modoRepeticion; btnRepetir.setStyle(estiloBotones + (modoRepeticion ? "-fx-text-fill: #1db954;" : "")); });
 
-        // --- EVENTO SELECCIONAR UNA PLAYLIST ---
-        vistaPlaylists.getSelectionModel().selectedItemProperty().addListener((obs, viejo, nuevo) -> {
-            if (nuevo != null) {
-                playlistSeleccionada = nuevo;
-                tituloCentral.setText("Playlist: " + nuevo);
-                
-                ListaSimple listaActual = mapaPlaylists.get(nuevo);
-                ObservableList<Cancion> cancionesPlaylist = FXCollections.observableArrayList();
-                
-                if (listaActual != null) {
-                    NodoLista nodoActual = listaActual.getCabeza();
-                    while (nodoActual != null) {
-                        cancionesPlaylist.add(nodoActual.getCancion());
-                        nodoActual = nodoActual.getSiguiente(); 
-                    }
-                }
-                tablaCanciones.setItems(cancionesPlaylist);
-                tablaCanciones.refresh();
-                if (modoRepeticion) reconstruirListaCircular();
-            }
-        });
-
-        btnAleatorio.setOnAction(evento -> {
-            modoAleatorio = !modoAleatorio;
-            if (modoAleatorio) {
-                btnAleatorio.setStyle(estiloBotones + "-fx-text-fill: #1db954;"); 
-            } else {
-                btnAleatorio.setStyle(estiloBotones); 
-            }
-        });
-
-        btnRepetir.setOnAction(evento -> {
-            modoRepeticion = !modoRepeticion;
-            if (modoRepeticion) {
-                btnRepetir.setStyle(estiloBotones + "-fx-text-fill: #1db954;"); 
-                reconstruirListaCircular();
-            } else {
-                btnRepetir.setStyle(estiloBotones); 
-            }
-        });
-
-        tablaCanciones.setOnMouseClicked(evento -> {
-            if (evento.getButton().equals(MouseButton.PRIMARY) && evento.getClickCount() == 2) {
-                Cancion seleccionada = tablaCanciones.getSelectionModel().getSelectedItem();
-                if (seleccionada != null) {
-                    if (cancionActual != null && !cancionActual.equals(seleccionada)) {
-                        historial.push(cancionActual);
-                    }
-                    
-                    cancionActual = seleccionada;
-                    
-                    if (modoRepeticion) {
-                        reconstruirListaCircular();
-                    }
-                    
-                    reproductor.detener();
-                    reproductor.reproducir(cancionActual.getRuta());
-                    btnPlayPausa.setText("⏸");
-                    estaReproduciendo = true;
-                }
-            }
-        });
+        tablaCanciones.setOnMouseClicked(e -> { if (e.getButton().equals(MouseButton.PRIMARY) && e.getClickCount() == 2) { Cancion s = tablaCanciones.getSelectionModel().getSelectedItem(); if (s != null) { if (cancionActual != null && !cancionActual.equals(s)) historial.push(cancionActual); cancionActual = s; reproducirActual(); btnPlayPausa.setText("⏸"); estaReproduciendo=true; } } });
         
-        btnCargarMusica.setOnAction(evento -> {
-            DirectoryChooser selectorDirectorio = new DirectoryChooser();
-            selectorDirectorio.setTitle("Selecciona la carpeta con tu música");
-            File carpetaSeleccionada = selectorDirectorio.showDialog(escenarioPrincipal);
-            
-            if (carpetaSeleccionada != null) {
-                LectorArchivos lector = new LectorArchivos();
-                lector.leerCarpetaRecursivamente(carpetaSeleccionada.getAbsolutePath());
-                listaOriginalCanciones = lector.getCancionesCargadas();
-                listaObservableCanciones = FXCollections.observableArrayList(listaOriginalCanciones);
-                tablaCanciones.setItems(listaObservableCanciones);
-                
-                modoRepeticion = false;
-                modoAleatorio = false;
-                btnRepetir.setStyle(estiloBotones);
-                btnAleatorio.setStyle(estiloBotones);
-                
-                vistaPlaylists.getSelectionModel().clearSelection();
-                playlistSeleccionada = null;
-                tituloCentral.setText("Biblioteca Principal");
-                tablaCanciones.refresh();
-            }
+        btnCargarMusica.setOnAction(e -> { DirectoryChooser d = new DirectoryChooser(); File c = d.showDialog(escenarioPrincipal); if (c != null) { LectorArchivos l = new LectorArchivos(); l.leerCarpetaRecursivamente(c.getAbsolutePath()); listaOriginalCanciones = l.getCancionesCargadas(); tablaCanciones.setItems(FXCollections.observableArrayList(listaOriginalCanciones)); vistaPlaylists.getSelectionModel().clearSelection(); playlistSeleccionada = null; tituloCentral.setText("Biblioteca Principal"); } });
+
+        btnPlayPausa.setOnAction(e -> {
+            if (estaReproduciendo) { reproductor.pausar(); btnPlayPausa.setText("▶"); estaReproduciendo = false;
+            } else { if (cancionActual != null && reproductor.getProgreso() > 0) { reproductor.continuar(); btnPlayPausa.setText("⏸"); estaReproduciendo = true;
+                } else { if (!listaObservableCola.isEmpty()) { if (cancionActual != null) historial.push(cancionActual); cancionActual = listaObservableCola.remove(0); reproducirActual(); btnPlayPausa.setText("⏸"); estaReproduciendo=true;
+                    } else { Cancion s = tablaCanciones.getSelectionModel().getSelectedItem(); if (s != null) { if (cancionActual != null) historial.push(cancionActual); cancionActual = s; reproducirActual(); btnPlayPausa.setText("⏸"); estaReproduciendo=true; } } } }
         });
 
-        txtBuscar.textProperty().addListener((observable, textoViejo, textoNuevo) -> {
-            List<Cancion> cancionesAEvaluar = new ArrayList<>();
-            if (playlistSeleccionada == null) {
-                if (listaOriginalCanciones != null) cancionesAEvaluar.addAll(listaOriginalCanciones);
-            } else {
-                ListaSimple ls = mapaPlaylists.get(playlistSeleccionada);
-                if (ls != null) {
-                    NodoLista target = ls.getCabeza();
-                    while (target != null) {
-                        cancionesAEvaluar.add(target.getCancion());
-                        target = target.getSiguiente();
-                    }
-                }
-            }
-
-            if (textoNuevo == null || textoNuevo.trim().isEmpty()) {
-                tablaCanciones.setItems(FXCollections.observableArrayList(cancionesAEvaluar));
-            } else {
-                String busqueda = textoNuevo.toLowerCase();
-                List<Cancion> cancionesFiltradas = cancionesAEvaluar.stream()
-                        .filter(cancion -> {
-                            String tituloSeguro = (cancion.getNombre() != null) ? cancion.getNombre().toLowerCase() : "";
-                            String artistaSeguro = (cancion.getArtista() != null) ? cancion.getArtista().toLowerCase() : "";
-                            return tituloSeguro.contains(busqueda) || artistaSeguro.contains(busqueda);
-                        })
-                        .collect(Collectors.toList());
-                tablaCanciones.setItems(FXCollections.observableArrayList(cancionesFiltradas));
-            }
-            if (modoRepeticion) reconstruirListaCircular();
-            tablaCanciones.refresh();
+        btnSiguiente.setOnAction(e -> {
+            if (modoAleatorio && !tablaCanciones.getItems().isEmpty()) { if (cancionActual != null) historial.push(cancionActual); cancionActual = tablaCanciones.getItems().get((int) (Math.random() * tablaCanciones.getItems().size())); reproducirActual(); btnPlayPausa.setText("⏸");
+            } else if (!listaObservableCola.isEmpty()) { if (cancionActual != null) historial.push(cancionActual); cancionActual = listaObservableCola.remove(0); reproducirActual(); btnPlayPausa.setText("⏸");
+            } else { int i = tablaCanciones.getSelectionModel().getSelectedIndex(); if (i >= 0 && i < tablaCanciones.getItems().size() - 1) { if (cancionActual != null) historial.push(cancionActual); tablaCanciones.getSelectionModel().select(i + 1); cancionActual = tablaCanciones.getSelectionModel().getSelectedItem(); reproducirActual(); btnPlayPausa.setText("⏸"); } }
         });
 
-        btnLimpiar.setOnAction(evento -> txtBuscar.clear());
+        btnAnterior.setOnAction(e -> { Cancion ant = historial.pop(); if (ant != null) { cancionActual = ant; reproducirActual(); btnPlayPausa.setText("⏸"); } else if (cancionActual != null) reproductor.saltarA(0.0); });
 
-        btnQuitarCola.setOnAction(evento -> {
-            Cancion seleccionada = tablaCola.getSelectionModel().getSelectedItem();
-            if (seleccionada != null) {
-                listaObservableCola.remove(seleccionada);
-            }
-        });
-
-        btnSubirCola.setOnAction(evento -> {
-            int indice = tablaCola.getSelectionModel().getSelectedIndex();
-            if (indice > 0) {
-                Collections.swap(listaObservableCola, indice, indice - 1);
-                tablaCola.getSelectionModel().select(indice - 1);
-            }
-        });
-
-        btnBajarCola.setOnAction(evento -> {
-            int indice = tablaCola.getSelectionModel().getSelectedIndex();
-            if (indice >= 0 && indice < listaObservableCola.size() - 1) {
-                Collections.swap(listaObservableCola, indice, indice + 1);
-                tablaCola.getSelectionModel().select(indice + 1);
-            }
-        });
-        
-        btnPlayPausa.setOnAction(evento -> {
-            if (estaReproduciendo) {
-                reproductor.pausar();
-                btnPlayPausa.setText("▶");
-                estaReproduciendo = false;
-            } else {
-                if (cancionActual != null && reproductor.getProgreso() > 0 && reproductor.getProgreso() < 1) {
-                    reproductor.continuar();
-                    btnPlayPausa.setText("⏸");
-                    estaReproduciendo = true;
-                } else {
-                    if (!listaObservableCola.isEmpty()) {
-                        if (cancionActual != null) historial.push(cancionActual);
-                        cancionActual = listaObservableCola.remove(0); 
-                        tablaCanciones.getSelectionModel().select(cancionActual);
-                        if (modoRepeticion) reconstruirListaCircular();
-                    } else {
-                        Cancion seleccionada = tablaCanciones.getSelectionModel().getSelectedItem();
-                        if (seleccionada != null && !seleccionada.equals(cancionActual)) {
-                            if (cancionActual != null) historial.push(cancionActual);
-                            cancionActual = seleccionada;
-                        }
-                    }
-
-                    if (cancionActual != null) {
-                        reproductor.detener(); 
-                        reproductor.reproducir(cancionActual.getRuta());
-                        btnPlayPausa.setText("⏸");
-                        estaReproduciendo = true;
-                    }
-                }
-            }
-        });
-
-        btnSiguiente.setOnAction(evento -> {
-            if (modoAleatorio && !tablaCanciones.getItems().isEmpty()) {
-                if (cancionActual != null) historial.push(cancionActual);
-                
-                int tamaño = tablaCanciones.getItems().size();
-                int indiceAzar = (int) (Math.random() * tamaño);
-                
-                cancionActual = tablaCanciones.getItems().get(indiceAzar);
-                tablaCanciones.getSelectionModel().select(cancionActual);
-                
-                if (modoRepeticion) sincronizarListaCircular(cancionActual);
-                
-                reproductor.detener();
-                reproductor.reproducir(cancionActual.getRuta());
-                btnPlayPausa.setText("⏸");
-                estaReproduciendo = true;
-            } else if (modoRepeticion && listaRepeticion != null) {
-                if (cancionActual != null) historial.push(cancionActual);
-                cancionActual = listaRepeticion.irSiguiente();
-                if (cancionActual != null) {
-                    tablaCanciones.getSelectionModel().select(cancionActual);
-                    reproductor.detener();
-                    reproductor.reproducir(cancionActual.getRuta());
-                    btnPlayPausa.setText("⏸");
-                    estaReproduciendo = true;
-                }
-            } else if (!listaObservableCola.isEmpty()) {
-                if (cancionActual != null) historial.push(cancionActual);
-                cancionActual = listaObservableCola.remove(0); 
-                tablaCanciones.getSelectionModel().select(cancionActual);
-                
-                reproductor.detener();
-                reproductor.reproducir(cancionActual.getRuta());
-                btnPlayPausa.setText("⏸");
-                estaReproduciendo = true;
-            } else {
-                int indiceActual = tablaCanciones.getSelectionModel().getSelectedIndex();
-                if (indiceActual >= 0 && indiceActual < tablaCanciones.getItems().size() - 1) {
-                    if (cancionActual != null) historial.push(cancionActual);
-                    
-                    tablaCanciones.getSelectionModel().select(indiceActual + 1);
-                    cancionActual = tablaCanciones.getSelectionModel().getSelectedItem();
-                    
-                    reproductor.detener();
-                    reproductor.reproducir(cancionActual.getRuta());
-                    btnPlayPausa.setText("⏸");
-                    estaReproduciendo = true;
-                }
-            }
-        });
-
-        btnAnterior.setOnAction(evento -> {
-            if (modoAleatorio || !modoRepeticion) {
-                Cancion cancionAnterior = historial.pop();
-                if (cancionAnterior != null) {
-                    cancionActual = cancionAnterior;
-                    tablaCanciones.getSelectionModel().select(cancionActual); 
-                    reproductor.detener();
-                    reproductor.reproducir(cancionActual.getRuta());
-                    btnPlayPausa.setText("⏸");
-                    estaReproduciendo = true;
-                } else {
-                    if (cancionActual != null) reproductor.saltarA(0.0);
-                }
-            } else if (modoRepeticion && listaRepeticion != null) {
-                cancionActual = listaRepeticion.irAnterior();
-                if (cancionActual != null) {
-                    tablaCanciones.getSelectionModel().select(cancionActual);
-                    reproductor.detener();
-                    reproductor.reproducir(cancionActual.getRuta());
-                    btnPlayPausa.setText("⏸");
-                    estaReproduciendo = true;
-                }
-            }
-        });
-
+        // --- LÓGICA DE MOSTRAR/OCULTAR FILA ---
         layoutPrincipal.setLeft(menuIzquierdo);
         layoutPrincipal.setCenter(panelCentral);
-        layoutPrincipal.setRight(panelDerecho);
+        layoutPrincipal.setRight(null); // OCULTO POR DEFECTO
         layoutPrincipal.setBottom(panelInferior); 
+
+        btnVerFila.setOnAction(evento -> {
+            if (layoutPrincipal.getRight() == null) {
+                layoutPrincipal.setRight(panelDerecho);
+                btnVerFila.setStyle(estiloBotones + "-fx-text-fill: #30D5C8; -fx-font-size: 16px;"); // Turquesa cuando está abierto
+            } else {
+                layoutPrincipal.setRight(null);
+                btnVerFila.setStyle(estiloBotones + "-fx-text-fill: white; -fx-font-size: 16px;"); // Blanco cuando está cerrado
+            }
+        });
 
         Scene escena = new Scene(layoutPrincipal, 1150, 700); 
         escena.getRoot().setStyle("-fx-base: #121212; -fx-control-inner-background: #121212; -fx-table-cell-border-color: transparent; -fx-table-header-background-color: #282828;");
         escena.getStylesheets().add("data:text/css,.list-cell { -fx-text-fill: #b3b3b3; -fx-font-weight: bold; } .list-cell:selected { -fx-text-fill: white; -fx-background-color: #282828; } .context-menu { -fx-background-color: #282828; } .menu-item:focused { -fx-background-color: #3e3e3e; }");
 
-        escenarioPrincipal.setOnCloseRequest(evento -> {
-            reproductor.detener();
-            System.exit(0);
-        });
-
+        escenarioPrincipal.setOnCloseRequest(e -> { reproductor.detener(); System.exit(0); });
         escenarioPrincipal.setTitle("Sounds - Reproductor Musical");
         escenarioPrincipal.setScene(escena);
         escenarioPrincipal.show();
     }
 
-    private void reconstruirListaCircular() {
-        listaRepeticion = new ListaCircular();
-        for (Cancion c : tablaCanciones.getItems()) {
-            listaRepeticion.insertar(c);
-        }
-        if (cancionActual != null) {
-            sincronizarListaCircular(cancionActual);
-        }
-    }
-
-    private void sincronizarListaCircular(Cancion destino) {
-        if (destino == null || tablaCanciones.getItems().isEmpty()) return;
-        int limite = tablaCanciones.getItems().size();
-        for (int i = 0; i < limite; i++) {
-            Cancion c = listaRepeticion.irSiguiente();
-            if (c != null && c.equals(destino)) {
-                break; 
-            }
-        }
-    }
-
-    private String formatearTiempo(int segundosTotales) {
-        int minutos = segundosTotales / 60;
-        int segundos = segundosTotales % 60;
-        return String.format("%d:%02d", minutos, segundos);
-    }
-
-    public static void main(String[] args) {
-        launch(args);
-    }
+    private void reproducirActual() { if (cancionActual != null) { reproductor.detener(); reproductor.reproducir(cancionActual.getRuta()); } }
+    private String formatearTiempo(int seg) { return String.format("%d:%02d", seg / 60, seg % 60); }
+    public static void main(String[] args) { launch(args); }
 }

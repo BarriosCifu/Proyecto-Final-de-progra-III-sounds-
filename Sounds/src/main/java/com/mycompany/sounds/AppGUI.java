@@ -16,13 +16,17 @@ import javafx.collections.ObservableList;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
+import javafx.scene.control.MenuItem;
+import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.Slider;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
+import javafx.scene.control.ChoiceDialog;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.BorderPane;
@@ -32,7 +36,6 @@ import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
 import javafx.util.Duration;
-import static javafx.util.Duration.minutes;
 
 public class AppGUI extends Application {
 
@@ -60,7 +63,6 @@ public class AppGUI extends Application {
     // --- PLAYLISTS CON LISTA SIMPLE ---
     private ObservableList<String> nombresPlaylists = FXCollections.observableArrayList();
     private ListView<String> vistaPlaylists;
-    // El mapa conecta el nombre de la playlist con tu objeto ListaSimple
     private Map<String, ListaSimple> mapaPlaylists = new HashMap<>();
     private String playlistSeleccionada = null;
     private Label tituloCentral;
@@ -111,15 +113,8 @@ public class AppGUI extends Application {
         encabezadoBiblioteca.setAlignment(Pos.CENTER_LEFT);
         tituloCentral = new Label("Biblioteca Principal");
         tituloCentral.setStyle("-fx-text-fill: white; -fx-font-size: 24px; -fx-font-weight: bold;");
-        
-        Button btnAñadirACola = new Button("+ Fila");
-        btnAñadirACola.setStyle("-fx-background-color: #282828; -fx-text-fill: white; -fx-border-color: #b3b3b3; -fx-border-radius: 15; -fx-background-radius: 15; -fx-cursor: hand;");
-        
-        // BOTÓN NUEVO: Añadir a la Playlist Simple seleccionada
-        Button btnAñadirAPlaylist = new Button("+ Playlist");
-        btnAñadirAPlaylist.setStyle("-fx-background-color: #282828; -fx-text-fill: white; -fx-border-color: #b3b3b3; -fx-border-radius: 15; -fx-background-radius: 15; -fx-cursor: hand;");
-        
-        encabezadoBiblioteca.getChildren().addAll(tituloCentral, btnAñadirACola, btnAñadirAPlaylist);
+        // Nota: Botones feos de la parte superior eliminados para limpieza visual
+        encabezadoBiblioteca.getChildren().addAll(tituloCentral);
         
         tablaCanciones = new TableView<>();
         tablaCanciones.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
@@ -133,6 +128,73 @@ public class AppGUI extends Application {
         
         tablaCanciones.getColumns().addAll(colNombre, colArtista, colAlbum);
         VBox.setVgrow(tablaCanciones, Priority.ALWAYS);
+        
+        // --- MENÚ CONTEXTUAL (CLIC DERECHO ESTILO SPOTIFY) ---
+        ContextMenu menuContextual = new ContextMenu();
+        // Estilo oscuro para que coincida con la app
+        menuContextual.setStyle("-fx-base: #282828; -fx-control-inner-background: #282828; -fx-text-fill: white;");
+        
+        MenuItem itemAñadirCola = new MenuItem("➕ Agregar a la fila de reproducción");
+        MenuItem itemAñadirPlaylist = new MenuItem("🎵 Agregar a playlist...");
+        SeparatorMenuItem separador = new SeparatorMenuItem();
+        MenuItem itemEliminarPlaylist = new MenuItem("➖ Eliminar de esta playlist");
+        
+        menuContextual.getItems().addAll(itemAñadirCola, itemAñadirPlaylist, separador, itemEliminarPlaylist);
+        
+        // Asignar el menú a la tabla
+        tablaCanciones.setContextMenu(menuContextual);
+        
+        // Lógica: Mostrar "Eliminar" solo si estamos dentro de una playlist
+        menuContextual.setOnShowing(evento -> {
+            itemEliminarPlaylist.setDisable(playlistSeleccionada == null);
+        });
+
+        // Eventos del clic derecho
+        itemAñadirCola.setOnAction(evento -> {
+            Cancion seleccionada = tablaCanciones.getSelectionModel().getSelectedItem();
+            if (seleccionada != null) {
+                listaObservableCola.add(seleccionada);
+            }
+        });
+
+        itemAñadirPlaylist.setOnAction(evento -> {
+            Cancion seleccionada = tablaCanciones.getSelectionModel().getSelectedItem();
+            if (seleccionada != null) {
+                if (nombresPlaylists.isEmpty()) {
+                    System.out.println("Crea una playlist a la izquierda primero.");
+                    return;
+                }
+                ChoiceDialog<String> dialogo = new ChoiceDialog<>(nombresPlaylists.get(0), nombresPlaylists);
+                dialogo.setTitle("Añadir a Playlist");
+                dialogo.setHeaderText("Añadir '" + seleccionada.getNombre() + "' a:");
+                dialogo.setContentText("Selecciona tu Playlist:");
+                dialogo.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
+
+                Optional<String> resultado = dialogo.showAndWait();
+                resultado.ifPresent(nombrePlaylist -> {
+                    ListaSimple lista = mapaPlaylists.get(nombrePlaylist);
+                    if (lista != null) {
+                        lista.insertar(seleccionada); 
+                    }
+                });
+            }
+        });
+
+        itemEliminarPlaylist.setOnAction(evento -> {
+            Cancion seleccionada = tablaCanciones.getSelectionModel().getSelectedItem();
+            if (seleccionada != null && playlistSeleccionada != null) {
+                ListaSimple lista = mapaPlaylists.get(playlistSeleccionada);
+                if (lista != null) {
+                    // Llamamos a tu método de la Lista Simple
+                    boolean eliminado = lista.eliminar(seleccionada.getNombre());
+                    if (eliminado) {
+                        // Refrescamos la vista simulando un re-clic en la playlist
+                        vistaPlaylists.getSelectionModel().clearSelection();
+                        vistaPlaylists.getSelectionModel().select(playlistSeleccionada);
+                    }
+                }
+            }
+        });
         
         panelCentral.getChildren().addAll(barraBusqueda, encabezadoBiblioteca, tablaCanciones);
 
@@ -261,7 +323,6 @@ public class AppGUI extends Application {
             resultado.ifPresent(nombre -> {
                 if (!nombre.trim().isEmpty() && !nombresPlaylists.contains(nombre)) {
                     nombresPlaylists.add(nombre);
-                    // CONEXIÓN CON TU ESTRUCTURA: Instanciamos tu ListaSimple
                     mapaPlaylists.put(nombre, new ListaSimple()); 
                 }
             });
@@ -273,7 +334,6 @@ public class AppGUI extends Application {
                 playlistSeleccionada = nuevo;
                 tituloCentral.setText("Playlist: " + nuevo);
                 
-                // RECORRIDO DE TU LISTA SIMPLE: Extraemos los nodos para la UI
                 ListaSimple listaActual = mapaPlaylists.get(nuevo);
                 ObservableList<Cancion> cancionesPlaylist = FXCollections.observableArrayList();
                 
@@ -281,44 +341,13 @@ public class AppGUI extends Application {
                     NodoLista nodoActual = listaActual.getCabeza();
                     while (nodoActual != null) {
                         cancionesPlaylist.add(nodoActual.getCancion());
-                        nodoActual = nodoActual.getSiguiente(); // Avanzar al siguiente nodo simple
+                        nodoActual = nodoActual.getSiguiente(); 
                     }
                 }
                 tablaCanciones.setItems(cancionesPlaylist);
             }
         });
 
-      // --- EVENTO AÑADIR CANCIÓN A PLAYLIST (MEJORADO CON VENTANA EMERGENTE) ---
-        btnAñadirAPlaylist.setOnAction(evento -> {
-            Cancion cancionSeleccionada = tablaCanciones.getSelectionModel().getSelectedItem();
-            
-            if (cancionSeleccionada != null) {
-                if (nombresPlaylists.isEmpty()) {
-                    System.out.println("Primero debes crear una nueva Playlist en el panel izquierdo.");
-                    return;
-                }
-                
-                // Creamos un menú desplegable con las playlists que has creado
-                javafx.scene.control.ChoiceDialog<String> dialogo = new javafx.scene.control.ChoiceDialog<>(nombresPlaylists.get(0), nombresPlaylists);
-                dialogo.setTitle("Añadir a Playlist");
-                dialogo.setHeaderText("Añadir '" + cancionSeleccionada.getNombre() + "' a una lista:");
-                dialogo.setContentText("Selecciona tu Playlist:");
-                dialogo.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
-
-                // Capturamos la respuesta
-                java.util.Optional<String> resultado = dialogo.showAndWait();
-                resultado.ifPresent(nombrePlaylist -> {
-                    ListaSimple lista = mapaPlaylists.get(nombrePlaylist);
-                    if (lista != null) {
-                        // LLAMADA A TU ESTRUCTURA: Inserta el nodo en la lista
-                        lista.insertar(cancionSeleccionada); 
-                        System.out.println("¡Éxito! Canción añadida a la playlist: " + nombrePlaylist);
-                    }
-                });
-            } else {
-                System.out.println("Por favor selecciona una canción de la tabla primero.");
-            }
-        });
         // --- EVENTO REPETIR ---
         btnRepetir.setOnAction(evento -> {
             modoRepeticion = !modoRepeticion;
@@ -381,7 +410,6 @@ public class AppGUI extends Application {
             }
         });
 
-        // BUSCADOR INTELIGENTE: Filtra dinámicamente según el contexto (Biblioteca o Playlist)
         txtBuscar.textProperty().addListener((observable, textoViejo, textoNuevo) -> {
             List<Cancion> cancionesAEvaluar = new ArrayList<>();
             
@@ -414,13 +442,6 @@ public class AppGUI extends Application {
         });
 
         btnLimpiar.setOnAction(evento -> txtBuscar.clear());
-        
-        btnAñadirACola.setOnAction(evento -> {
-            Cancion seleccionada = tablaCanciones.getSelectionModel().getSelectedItem();
-            if (seleccionada != null) {
-                listaObservableCola.add(seleccionada);
-            }
-        });
 
         btnQuitarCola.setOnAction(evento -> {
             Cancion seleccionada = tablaCola.getSelectionModel().getSelectedItem();
@@ -552,8 +573,9 @@ public class AppGUI extends Application {
         layoutPrincipal.setBottom(panelInferior); 
 
         Scene escena = new Scene(layoutPrincipal, 1150, 700); 
+        // Estilo extra para el menú contextual y las celdas
         escena.getRoot().setStyle("-fx-base: #121212; -fx-control-inner-background: #121212; -fx-table-cell-border-color: transparent; -fx-table-header-background-color: #282828;");
-        escena.getStylesheets().add("data:text/css,.list-cell { -fx-text-fill: #b3b3b3; -fx-font-weight: bold; } .list-cell:selected { -fx-text-fill: white; -fx-background-color: #282828; }");
+        escena.getStylesheets().add("data:text/css,.list-cell { -fx-text-fill: #b3b3b3; -fx-font-weight: bold; } .list-cell:selected { -fx-text-fill: white; -fx-background-color: #282828; } .context-menu { -fx-background-color: #282828; } .menu-item:focused { -fx-background-color: #3e3e3e; }");
 
         escenarioPrincipal.setOnCloseRequest(evento -> {
             reproductor.detener();

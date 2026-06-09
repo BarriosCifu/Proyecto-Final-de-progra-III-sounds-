@@ -1,8 +1,11 @@
 package com.mycompany.sounds;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 import javafx.animation.KeyFrame;
@@ -29,6 +32,7 @@ import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
 import javafx.util.Duration;
+import static javafx.util.Duration.minutes;
 
 public class AppGUI extends Application {
 
@@ -53,9 +57,13 @@ public class AppGUI extends Application {
     private ListaCircular listaRepeticion = new ListaCircular(); 
     private Pila historial = new Pila(); 
 
-    // --- NUEVO: INTERFAZ DE PLAYLISTS ---
+    // --- PLAYLISTS CON LISTA SIMPLE ---
     private ObservableList<String> nombresPlaylists = FXCollections.observableArrayList();
     private ListView<String> vistaPlaylists;
+    // El mapa conecta el nombre de la playlist con tu objeto ListaSimple
+    private Map<String, ListaSimple> mapaPlaylists = new HashMap<>();
+    private String playlistSeleccionada = null;
+    private Label tituloCentral;
 
     @Override
     public void start(Stage escenarioPrincipal) {
@@ -67,13 +75,12 @@ public class AppGUI extends Application {
         menuIzquierdo.setStyle("-fx-background-color: #000000; -fx-padding: 20px;");
         
         Label textoMenu = new Label("MI BIBLIOTECA");
-        textoMenu.setStyle("-fx-text-fill: #b3b3b3; -fx-font-weight: bold; -fx-font-size: 12px;");
+        textoMenu.setStyle("-fx-text-fill: #b3b3b3; -fx-font-weight: bold; -fx-font-size: 12px; -fx-cursor: hand;");
         
         Button btnCargarMusica = new Button("Cargar Carpeta MP3");
         btnCargarMusica.setStyle("-fx-background-color: #1db954; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 20; -fx-cursor: hand;");
         btnCargarMusica.setPrefWidth(180);
         
-        // --- ESPACIO PARA PLAYLISTS ---
         Label textoPlaylists = new Label("MIS PLAYLISTS");
         textoPlaylists.setStyle("-fx-text-fill: #b3b3b3; -fx-font-weight: bold; -fx-font-size: 12px; -fx-padding: 20px 0 0 0;");
         
@@ -81,9 +88,8 @@ public class AppGUI extends Application {
         btnNuevaPlaylist.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-alignment: center-left; -fx-padding: 0;");
         
         vistaPlaylists = new ListView<>(nombresPlaylists);
-        // Estilos oscuros para que se camufle con la barra negra
         vistaPlaylists.setStyle("-fx-background-color: transparent; -fx-control-inner-background: #000000; -fx-border-color: transparent;");
-        VBox.setVgrow(vistaPlaylists, Priority.ALWAYS); // Hace que la lista estire hasta tocar fondo
+        VBox.setVgrow(vistaPlaylists, Priority.ALWAYS); 
         
         menuIzquierdo.getChildren().addAll(textoMenu, btnCargarMusica, textoPlaylists, btnNuevaPlaylist, vistaPlaylists);
 
@@ -101,14 +107,19 @@ public class AppGUI extends Application {
         btnLimpiar.setStyle("-fx-background-color: transparent; -fx-text-fill: gray; -fx-cursor: hand;");
         barraBusqueda.getChildren().addAll(txtBuscar, btnLimpiar);
 
-        HBox encabezadoBiblioteca = new HBox(20);
+        HBox encabezadoBiblioteca = new HBox(15);
         encabezadoBiblioteca.setAlignment(Pos.CENTER_LEFT);
-        Label tituloCentral = new Label("Biblioteca Principal");
+        tituloCentral = new Label("Biblioteca Principal");
         tituloCentral.setStyle("-fx-text-fill: white; -fx-font-size: 24px; -fx-font-weight: bold;");
         
-        Button btnAñadirACola = new Button("+ Añadir a la Fila");
+        Button btnAñadirACola = new Button("+ Fila");
         btnAñadirACola.setStyle("-fx-background-color: #282828; -fx-text-fill: white; -fx-border-color: #b3b3b3; -fx-border-radius: 15; -fx-background-radius: 15; -fx-cursor: hand;");
-        encabezadoBiblioteca.getChildren().addAll(tituloCentral, btnAñadirACola);
+        
+        // BOTÓN NUEVO: Añadir a la Playlist Simple seleccionada
+        Button btnAñadirAPlaylist = new Button("+ Playlist");
+        btnAñadirAPlaylist.setStyle("-fx-background-color: #282828; -fx-text-fill: white; -fx-border-color: #b3b3b3; -fx-border-radius: 15; -fx-background-radius: 15; -fx-cursor: hand;");
+        
+        encabezadoBiblioteca.getChildren().addAll(tituloCentral, btnAñadirACola, btnAñadirAPlaylist);
         
         tablaCanciones = new TableView<>();
         tablaCanciones.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
@@ -228,22 +239,72 @@ public class AppGUI extends Application {
         temporizador.setCycleCount(Timeline.INDEFINITE);
         temporizador.play();
 
+        // --- EVENTO REGRESAR A BIBLIOTECA PRINCIPAL ---
+        textoMenu.setOnMouseClicked(evento -> {
+            vistaPlaylists.getSelectionModel().clearSelection();
+            playlistSeleccionada = null;
+            tituloCentral.setText("Biblioteca Principal");
+            if (listaOriginalCanciones != null) {
+                tablaCanciones.setItems(FXCollections.observableArrayList(listaOriginalCanciones));
+            }
+        });
+
         // --- EVENTO CREAR NUEVA PLAYLIST ---
         btnNuevaPlaylist.setOnAction(evento -> {
             TextInputDialog dialogo = new TextInputDialog();
             dialogo.setTitle("Nueva Playlist");
             dialogo.setHeaderText("Crear una nueva lista de reproducción");
             dialogo.setContentText("Nombre de la Playlist:");
-            
-            // Un poco de estilo oscuro al diálogo
             dialogo.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
 
             Optional<String> resultado = dialogo.showAndWait();
             resultado.ifPresent(nombre -> {
                 if (!nombre.trim().isEmpty() && !nombresPlaylists.contains(nombre)) {
                     nombresPlaylists.add(nombre);
+                    // CONEXIÓN CON TU ESTRUCTURA: Instanciamos tu ListaSimple
+                    mapaPlaylists.put(nombre, new ListaSimple()); 
                 }
             });
+        });
+
+        // --- EVENTO SELECCIONAR UNA PLAYLIST EN EL PANEL IZQUIERDO ---
+        vistaPlaylists.getSelectionModel().selectedItemProperty().addListener((obs, viejo, nuevo) -> {
+            if (nuevo != null) {
+                playlistSeleccionada = nuevo;
+                tituloCentral.setText("Playlist: " + nuevo);
+                
+                // RECORRIDO DE TU LISTA SIMPLE: Extraemos los nodos para la UI
+                ListaSimple listaActual = mapaPlaylists.get(nuevo);
+                ObservableList<Cancion> cancionesPlaylist = FXCollections.observableArrayList();
+                
+                if (listaActual != null) {
+                    NodoLista nodoActual = listaActual.getCabeza();
+                    while (nodoActual != null) {
+                        cancionesPlaylist.add(nodoActual.getCancion());
+                        nodoActual = nodoActual.getSiguiente(); // Avanzar al siguiente nodo simple
+                    }
+                }
+                tablaCanciones.setItems(cancionesPlaylist);
+            }
+        });
+
+        // --- EVENTO AÑADIR CANCIÓN SELECCIONADA A LA PLAYLIST SIMPLE ---
+        btnAñadirAPlaylist.setOnAction(evento -> {
+            Cancion cancionSeleccionada = tablaCanciones.getSelectionModel().getSelectedItem();
+            if (cancionSeleccionada != null && playlistSeleccionada != null) {
+                ListaSimple lista = mapaPlaylists.get(playlistSeleccionada);
+                if (lista != null) {
+                    // LLAMADA A TU MÉTODO: Inserta el nodo en la lista enlazada
+                    lista.insertar(cancionSeleccionada); 
+                    System.out.println("Insertada en ListaSimple (" + playlistSeleccionada + "): " + cancionSeleccionada.getNombre());
+                    
+                    // Refrescar visualmente la tabla si estamos parados sobre esa playlist
+                    vistaPlaylists.getSelectionModel().clearSelection();
+                    vistaPlaylists.getSelectionModel().select(playlistSeleccionada);
+                }
+            } else {
+                System.out.println("Por favor selecciona una canción y marca una playlist primero.");
+            }
         });
 
         // --- EVENTO REPETIR ---
@@ -301,16 +362,35 @@ public class AppGUI extends Application {
                 modoRepeticion = false;
                 btnRepetir.setStyle(estiloBotones);
                 btnRepetir.setText("🔁");
+                
+                vistaPlaylists.getSelectionModel().clearSelection();
+                playlistSeleccionada = null;
+                tituloCentral.setText("Biblioteca Principal");
             }
         });
 
+        // BUSCADOR INTELIGENTE: Filtra dinámicamente según el contexto (Biblioteca o Playlist)
         txtBuscar.textProperty().addListener((observable, textoViejo, textoNuevo) -> {
-            if (listaOriginalCanciones == null) return;
+            List<Cancion> cancionesAEvaluar = new ArrayList<>();
+            
+            if (playlistSeleccionada == null) {
+                if (listaOriginalCanciones != null) cancionesAEvaluar.addAll(listaOriginalCanciones);
+            } else {
+                ListaSimple ls = mapaPlaylists.get(playlistSeleccionada);
+                if (ls != null) {
+                    NodoLista target = ls.getCabeza();
+                    while (target != null) {
+                        cancionesAEvaluar.add(target.getCancion());
+                        target = target.getSiguiente();
+                    }
+                }
+            }
+
             if (textoNuevo == null || textoNuevo.trim().isEmpty()) {
-                tablaCanciones.setItems(FXCollections.observableArrayList(listaOriginalCanciones));
+                tablaCanciones.setItems(FXCollections.observableArrayList(cancionesAEvaluar));
             } else {
                 String busqueda = textoNuevo.toLowerCase();
-                List<Cancion> cancionesFiltradas = listaOriginalCanciones.stream()
+                List<Cancion> cancionesFiltradas = cancionesAEvaluar.stream()
                         .filter(cancion -> {
                             String tituloSeguro = (cancion.getNombre() != null) ? cancion.getNombre().toLowerCase() : "";
                             String artistaSeguro = (cancion.getArtista() != null) ? cancion.getArtista().toLowerCase() : "";
@@ -460,7 +540,6 @@ public class AppGUI extends Application {
         layoutPrincipal.setBottom(panelInferior); 
 
         Scene escena = new Scene(layoutPrincipal, 1150, 700); 
-        // Agregamos un poco de estilo extra para ocultar el selector azul clásico de JavaFX en la ListView y hacer la letra blanca
         escena.getRoot().setStyle("-fx-base: #121212; -fx-control-inner-background: #121212; -fx-table-cell-border-color: transparent; -fx-table-header-background-color: #282828;");
         escena.getStylesheets().add("data:text/css,.list-cell { -fx-text-fill: #b3b3b3; -fx-font-weight: bold; } .list-cell:selected { -fx-text-fill: white; -fx-background-color: #282828; }");
 

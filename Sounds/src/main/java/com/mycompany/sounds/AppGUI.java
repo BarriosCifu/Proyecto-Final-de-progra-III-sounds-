@@ -3,6 +3,7 @@ package com.mycompany.sounds;
 import java.io.File;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
@@ -13,10 +14,12 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
 import javafx.scene.control.Slider;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.BorderPane;
@@ -47,8 +50,12 @@ public class AppGUI extends Application {
 
     // --- ESTRUCTURAS DE DATOS ---
     private boolean modoRepeticion = false;
-    private ListaCircular listaRepeticion = new ListaCircular(); // Para el Loop (Repetir)
-    private Pila historial = new Pila(); // NUEVO: Para el historial de reproducción
+    private ListaCircular listaRepeticion = new ListaCircular(); 
+    private Pila historial = new Pila(); 
+
+    // --- NUEVO: INTERFAZ DE PLAYLISTS ---
+    private ObservableList<String> nombresPlaylists = FXCollections.observableArrayList();
+    private ListView<String> vistaPlaylists;
 
     @Override
     public void start(Stage escenarioPrincipal) {
@@ -66,7 +73,19 @@ public class AppGUI extends Application {
         btnCargarMusica.setStyle("-fx-background-color: #1db954; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 20; -fx-cursor: hand;");
         btnCargarMusica.setPrefWidth(180);
         
-        menuIzquierdo.getChildren().addAll(textoMenu, btnCargarMusica);
+        // --- ESPACIO PARA PLAYLISTS ---
+        Label textoPlaylists = new Label("MIS PLAYLISTS");
+        textoPlaylists.setStyle("-fx-text-fill: #b3b3b3; -fx-font-weight: bold; -fx-font-size: 12px; -fx-padding: 20px 0 0 0;");
+        
+        Button btnNuevaPlaylist = new Button("+ Nueva Playlist");
+        btnNuevaPlaylist.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-alignment: center-left; -fx-padding: 0;");
+        
+        vistaPlaylists = new ListView<>(nombresPlaylists);
+        // Estilos oscuros para que se camufle con la barra negra
+        vistaPlaylists.setStyle("-fx-background-color: transparent; -fx-control-inner-background: #000000; -fx-border-color: transparent;");
+        VBox.setVgrow(vistaPlaylists, Priority.ALWAYS); // Hace que la lista estire hasta tocar fondo
+        
+        menuIzquierdo.getChildren().addAll(textoMenu, btnCargarMusica, textoPlaylists, btnNuevaPlaylist, vistaPlaylists);
 
         // --- 2. PANEL CENTRAL ---
         VBox panelCentral = new VBox(10);
@@ -209,6 +228,24 @@ public class AppGUI extends Application {
         temporizador.setCycleCount(Timeline.INDEFINITE);
         temporizador.play();
 
+        // --- EVENTO CREAR NUEVA PLAYLIST ---
+        btnNuevaPlaylist.setOnAction(evento -> {
+            TextInputDialog dialogo = new TextInputDialog();
+            dialogo.setTitle("Nueva Playlist");
+            dialogo.setHeaderText("Crear una nueva lista de reproducción");
+            dialogo.setContentText("Nombre de la Playlist:");
+            
+            // Un poco de estilo oscuro al diálogo
+            dialogo.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
+
+            Optional<String> resultado = dialogo.showAndWait();
+            resultado.ifPresent(nombre -> {
+                if (!nombre.trim().isEmpty() && !nombresPlaylists.contains(nombre)) {
+                    nombresPlaylists.add(nombre);
+                }
+            });
+        });
+
         // --- EVENTO REPETIR ---
         btnRepetir.setOnAction(evento -> {
             modoRepeticion = !modoRepeticion;
@@ -230,7 +267,6 @@ public class AppGUI extends Application {
             if (evento.getButton().equals(MouseButton.PRIMARY) && evento.getClickCount() == 2) {
                 Cancion seleccionada = tablaCanciones.getSelectionModel().getSelectedItem();
                 if (seleccionada != null) {
-                    // PILA: Guardamos la canción anterior en el historial antes de cambiarla
                     if (cancionActual != null && !cancionActual.equals(seleccionada)) {
                         historial.push(cancionActual);
                     }
@@ -329,7 +365,6 @@ public class AppGUI extends Application {
                     estaReproduciendo = true;
                 } else {
                     if (!listaObservableCola.isEmpty()) {
-                        // PILA: Historial
                         if (cancionActual != null) historial.push(cancionActual);
                         
                         cancionActual = listaObservableCola.remove(0); 
@@ -341,7 +376,6 @@ public class AppGUI extends Application {
                     } else {
                         Cancion seleccionada = tablaCanciones.getSelectionModel().getSelectedItem();
                         if (seleccionada != null && !seleccionada.equals(cancionActual)) {
-                            // PILA: Historial
                             if (cancionActual != null) historial.push(cancionActual);
                             cancionActual = seleccionada;
                         }
@@ -367,7 +401,6 @@ public class AppGUI extends Application {
                     estaReproduciendo = true;
                 }
             } else if (!listaObservableCola.isEmpty()) {
-                // PILA: Guardar antes de saltar a la cola
                 if (cancionActual != null) historial.push(cancionActual);
                 
                 cancionActual = listaObservableCola.remove(0); 
@@ -380,7 +413,6 @@ public class AppGUI extends Application {
             } else {
                 int indiceActual = tablaCanciones.getSelectionModel().getSelectedIndex();
                 if (indiceActual >= 0 && indiceActual < tablaCanciones.getItems().size() - 1) {
-                    // PILA: Guardar antes de pasar a la siguiente de la tabla
                     if (cancionActual != null) historial.push(cancionActual);
                     
                     tablaCanciones.getSelectionModel().select(indiceActual + 1);
@@ -394,7 +426,6 @@ public class AppGUI extends Application {
             }
         });
 
-        // --- BOTÓN ANTERIOR (AHORA USA LA PILA DEL HISTORIAL LIFO) ---
         btnAnterior.setOnAction(evento -> {
             if (modoRepeticion && listaRepeticion != null) {
                 cancionActual = listaRepeticion.irAnterior();
@@ -405,23 +436,19 @@ public class AppGUI extends Application {
                     estaReproduciendo = true;
                 }
             } else {
-                // EXTRACCIÓN DE LA PILA
                 Cancion cancionAnterior = historial.pop();
                 
                 if (cancionAnterior != null) {
                     cancionActual = cancionAnterior;
-                    tablaCanciones.getSelectionModel().select(cancionActual); // La marcamos en la interfaz
+                    tablaCanciones.getSelectionModel().select(cancionActual); 
                     
                     reproductor.detener();
                     reproductor.reproducir(cancionActual.getRuta());
                     btnPlayPausa.setText("⏸");
                     estaReproduciendo = true;
-                    System.out.println("Historial (Pila): Regresando a " + cancionActual.getNombre());
                 } else {
-                    // Si la pila está vacía (no hay historial), reinicia la canción actual desde cero
                     if (cancionActual != null) {
                         reproductor.saltarA(0.0);
-                        System.out.println("Historial vacío. Reiniciando canción.");
                     }
                 }
             }
@@ -433,7 +460,9 @@ public class AppGUI extends Application {
         layoutPrincipal.setBottom(panelInferior); 
 
         Scene escena = new Scene(layoutPrincipal, 1150, 700); 
+        // Agregamos un poco de estilo extra para ocultar el selector azul clásico de JavaFX en la ListView y hacer la letra blanca
         escena.getRoot().setStyle("-fx-base: #121212; -fx-control-inner-background: #121212; -fx-table-cell-border-color: transparent; -fx-table-header-background-color: #282828;");
+        escena.getStylesheets().add("data:text/css,.list-cell { -fx-text-fill: #b3b3b3; -fx-font-weight: bold; } .list-cell:selected { -fx-text-fill: white; -fx-background-color: #282828; }");
 
         escenarioPrincipal.setOnCloseRequest(evento -> {
             reproductor.detener();

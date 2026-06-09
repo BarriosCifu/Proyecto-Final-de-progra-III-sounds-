@@ -288,25 +288,37 @@ public class AppGUI extends Application {
             }
         });
 
-        // --- EVENTO AÑADIR CANCIÓN SELECCIONADA A LA PLAYLIST SIMPLE ---
+      // --- EVENTO AÑADIR CANCIÓN A PLAYLIST (MEJORADO CON VENTANA EMERGENTE) ---
         btnAñadirAPlaylist.setOnAction(evento -> {
             Cancion cancionSeleccionada = tablaCanciones.getSelectionModel().getSelectedItem();
-            if (cancionSeleccionada != null && playlistSeleccionada != null) {
-                ListaSimple lista = mapaPlaylists.get(playlistSeleccionada);
-                if (lista != null) {
-                    // LLAMADA A TU MÉTODO: Inserta el nodo en la lista enlazada
-                    lista.insertar(cancionSeleccionada); 
-                    System.out.println("Insertada en ListaSimple (" + playlistSeleccionada + "): " + cancionSeleccionada.getNombre());
-                    
-                    // Refrescar visualmente la tabla si estamos parados sobre esa playlist
-                    vistaPlaylists.getSelectionModel().clearSelection();
-                    vistaPlaylists.getSelectionModel().select(playlistSeleccionada);
+            
+            if (cancionSeleccionada != null) {
+                if (nombresPlaylists.isEmpty()) {
+                    System.out.println("Primero debes crear una nueva Playlist en el panel izquierdo.");
+                    return;
                 }
+                
+                // Creamos un menú desplegable con las playlists que has creado
+                javafx.scene.control.ChoiceDialog<String> dialogo = new javafx.scene.control.ChoiceDialog<>(nombresPlaylists.get(0), nombresPlaylists);
+                dialogo.setTitle("Añadir a Playlist");
+                dialogo.setHeaderText("Añadir '" + cancionSeleccionada.getNombre() + "' a una lista:");
+                dialogo.setContentText("Selecciona tu Playlist:");
+                dialogo.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
+
+                // Capturamos la respuesta
+                java.util.Optional<String> resultado = dialogo.showAndWait();
+                resultado.ifPresent(nombrePlaylist -> {
+                    ListaSimple lista = mapaPlaylists.get(nombrePlaylist);
+                    if (lista != null) {
+                        // LLAMADA A TU ESTRUCTURA: Inserta el nodo en la lista
+                        lista.insertar(cancionSeleccionada); 
+                        System.out.println("¡Éxito! Canción añadida a la playlist: " + nombrePlaylist);
+                    }
+                });
             } else {
-                System.out.println("Por favor selecciona una canción y marca una playlist primero.");
+                System.out.println("Por favor selecciona una canción de la tabla primero.");
             }
         });
-
         // --- EVENTO REPETIR ---
         btnRepetir.setOnAction(evento -> {
             modoRepeticion = !modoRepeticion;

@@ -4,9 +4,11 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
@@ -16,17 +18,18 @@ import javafx.collections.ObservableList;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
+import javafx.scene.control.ChoiceDialog;
 import javafx.scene.control.ContextMenu;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.MenuItem;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.Slider;
+import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
-import javafx.scene.control.ChoiceDialog;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.BorderPane;
@@ -60,16 +63,23 @@ public class AppGUI extends Application {
     private ListaCircular listaRepeticion = new ListaCircular(); 
     private Pila historial = new Pila(); 
 
-    // --- PLAYLISTS CON LISTA SIMPLE ---
+    // --- PLAYLISTS Y FAVORITOS ---
     private ObservableList<String> nombresPlaylists = FXCollections.observableArrayList();
     private ListView<String> vistaPlaylists;
     private Map<String, ListaSimple> mapaPlaylists = new HashMap<>();
     private String playlistSeleccionada = null;
     private Label tituloCentral;
+    
+    // NUEVO: Set para búsquedas instantáneas de favoritos (O(1))
+    private Set<String> cancionesFavoritas = new HashSet<>();
 
     @Override
     public void start(Stage escenarioPrincipal) {
         BorderPane layoutPrincipal = new BorderPane();
+
+        // --- INICIALIZACIÓN DE PLAYLIST POR DEFECTO ---
+        nombresPlaylists.add("Mis me gusta");
+        mapaPlaylists.put("Mis me gusta", new ListaSimple());
 
         // --- 1. PANEL IZQUIERDO ---
         VBox menuIzquierdo = new VBox(15);
@@ -113,12 +123,62 @@ public class AppGUI extends Application {
         encabezadoBiblioteca.setAlignment(Pos.CENTER_LEFT);
         tituloCentral = new Label("Biblioteca Principal");
         tituloCentral.setStyle("-fx-text-fill: white; -fx-font-size: 24px; -fx-font-weight: bold;");
-        // Nota: Botones feos de la parte superior eliminados para limpieza visual
         encabezadoBiblioteca.getChildren().addAll(tituloCentral);
         
         tablaCanciones = new TableView<>();
         tablaCanciones.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         
+        // --- NUEVA COLUMNA: ESTRELLA DE FAVORITOS ---
+        TableColumn<Cancion, String> colFavorita = new TableColumn<>("");
+        colFavorita.setPrefWidth(45);
+        colFavorita.setResizable(false);
+
+        colFavorita.setCellFactory(column -> {
+            return new TableCell<Cancion, String>() {
+                @Override
+                protected void updateItem(String item, boolean empty) {
+                    super.updateItem(item, empty);
+                    if (empty || getTableRow() == null || getTableRow().getItem() == null) {
+                        setText(null);
+                        setGraphic(null);
+                    } else {
+                        Cancion cancion = getTableRow().getItem();
+                        // Si es favorita, la estrella es dorada y llena
+                        if (cancionesFavoritas.contains(cancion.getRuta())) {
+                            setText("⭐");
+                            setStyle("-fx-text-fill: #FFD700; -fx-alignment: CENTER; -fx-cursor: hand; -fx-font-size: 16px;");
+                        } else {
+                            // Si no, es gris y vacía
+                            setText("☆");
+                            setStyle("-fx-text-fill: #535353; -fx-alignment: CENTER; -fx-cursor: hand; -fx-font-size: 16px;");
+                        }
+                    }
+                }
+
+                {
+                    // Lógica al hacer clic en la estrella
+                    setOnMouseClicked(evento -> {
+                        if (getTableRow() != null && getTableRow().getItem() != null) {
+                            Cancion cancion = getTableRow().getItem();
+                            ListaSimple playlistFavoritos = mapaPlaylists.get("Mis me gusta");
+
+                            if (cancionesFavoritas.contains(cancion.getRuta())) {
+                                // Quitar de favoritos
+                                cancionesFavoritas.remove(cancion.getRuta());
+                                playlistFavoritos.eliminar(cancion.getNombre());
+                            } else {
+                                // Agregar a favoritos
+                                cancionesFavoritas.add(cancion.getRuta());
+                                playlistFavoritos.insertar(cancion);
+                            }
+                            tablaCanciones.refresh(); 
+                        }
+                    });
+                }
+            };
+        });
+
+        // --- COLUMNAS NORMALES ---
         TableColumn<Cancion, String> colNombre = new TableColumn<>("Título");
         colNombre.setCellValueFactory(new PropertyValueFactory<>("nombre"));
         TableColumn<Cancion, String> colArtista = new TableColumn<>("Artista");
@@ -126,30 +186,27 @@ public class AppGUI extends Application {
         TableColumn<Cancion, String> colAlbum = new TableColumn<>("Álbum");
         colAlbum.setCellValueFactory(new PropertyValueFactory<>("album"));
         
-        tablaCanciones.getColumns().addAll(colNombre, colArtista, colAlbum);
+        // Agregamos la columna de estrella de primero
+        tablaCanciones.getColumns().addAll(colFavorita, colNombre, colArtista, colAlbum);
         VBox.setVgrow(tablaCanciones, Priority.ALWAYS);
         
-        // --- MENÚ CONTEXTUAL (CLIC DERECHO ESTILO SPOTIFY) ---
+        // --- MENÚ CONTEXTUAL (CLIC DERECHO) ---
         ContextMenu menuContextual = new ContextMenu();
-        // Estilo oscuro para que coincida con la app
         menuContextual.setStyle("-fx-base: #282828; -fx-control-inner-background: #282828; -fx-text-fill: white;");
         
         MenuItem itemAñadirCola = new MenuItem("➕ Agregar a la fila de reproducción");
         MenuItem itemAñadirPlaylist = new MenuItem("🎵 Agregar a playlist...");
+        MenuItem itemFavorito = new MenuItem("⭐ Guardar en Mis me gusta"); // NUEVO ÍTEM
         SeparatorMenuItem separador = new SeparatorMenuItem();
         MenuItem itemEliminarPlaylist = new MenuItem("➖ Eliminar de esta playlist");
         
-        menuContextual.getItems().addAll(itemAñadirCola, itemAñadirPlaylist, separador, itemEliminarPlaylist);
-        
-        // Asignar el menú a la tabla
+        menuContextual.getItems().addAll(itemAñadirCola, itemAñadirPlaylist, itemFavorito, separador, itemEliminarPlaylist);
         tablaCanciones.setContextMenu(menuContextual);
         
-        // Lógica: Mostrar "Eliminar" solo si estamos dentro de una playlist
         menuContextual.setOnShowing(evento -> {
             itemEliminarPlaylist.setDisable(playlistSeleccionada == null);
         });
 
-        // Eventos del clic derecho
         itemAñadirCola.setOnAction(evento -> {
             Cancion seleccionada = tablaCanciones.getSelectionModel().getSelectedItem();
             if (seleccionada != null) {
@@ -160,11 +217,11 @@ public class AppGUI extends Application {
         itemAñadirPlaylist.setOnAction(evento -> {
             Cancion seleccionada = tablaCanciones.getSelectionModel().getSelectedItem();
             if (seleccionada != null) {
-                if (nombresPlaylists.isEmpty()) {
-                    System.out.println("Crea una playlist a la izquierda primero.");
+                if (nombresPlaylists.size() <= 1) { // Solo existe "Mis me gusta"
+                    System.out.println("Crea una nueva playlist a la izquierda primero.");
                     return;
                 }
-                ChoiceDialog<String> dialogo = new ChoiceDialog<>(nombresPlaylists.get(0), nombresPlaylists);
+                ChoiceDialog<String> dialogo = new ChoiceDialog<>(nombresPlaylists.get(1), nombresPlaylists);
                 dialogo.setTitle("Añadir a Playlist");
                 dialogo.setHeaderText("Añadir '" + seleccionada.getNombre() + "' a:");
                 dialogo.setContentText("Selecciona tu Playlist:");
@@ -179,16 +236,30 @@ public class AppGUI extends Application {
                 });
             }
         });
+        
+        // NUEVO: Lógica del menú clic derecho para favoritos
+        itemFavorito.setOnAction(e -> {
+            Cancion c = tablaCanciones.getSelectionModel().getSelectedItem();
+            if (c != null) {
+                if(!cancionesFavoritas.contains(c.getRuta())){
+                    cancionesFavoritas.add(c.getRuta());
+                    mapaPlaylists.get("Mis me gusta").insertar(c);
+                    tablaCanciones.refresh();
+                }
+            }
+        });
 
         itemEliminarPlaylist.setOnAction(evento -> {
             Cancion seleccionada = tablaCanciones.getSelectionModel().getSelectedItem();
             if (seleccionada != null && playlistSeleccionada != null) {
                 ListaSimple lista = mapaPlaylists.get(playlistSeleccionada);
                 if (lista != null) {
-                    // Llamamos a tu método de la Lista Simple
                     boolean eliminado = lista.eliminar(seleccionada.getNombre());
                     if (eliminado) {
-                        // Refrescamos la vista simulando un re-clic en la playlist
+                        // Si lo eliminamos de "Mis me gusta", también quitamos la estrella
+                        if (playlistSeleccionada.equals("Mis me gusta")) {
+                            cancionesFavoritas.remove(seleccionada.getRuta());
+                        }
                         vistaPlaylists.getSelectionModel().clearSelection();
                         vistaPlaylists.getSelectionModel().select(playlistSeleccionada);
                     }
@@ -308,6 +379,7 @@ public class AppGUI extends Application {
             tituloCentral.setText("Biblioteca Principal");
             if (listaOriginalCanciones != null) {
                 tablaCanciones.setItems(FXCollections.observableArrayList(listaOriginalCanciones));
+                tablaCanciones.refresh();
             }
         });
 
@@ -328,7 +400,7 @@ public class AppGUI extends Application {
             });
         });
 
-        // --- EVENTO SELECCIONAR UNA PLAYLIST EN EL PANEL IZQUIERDO ---
+        // --- EVENTO SELECCIONAR UNA PLAYLIST ---
         vistaPlaylists.getSelectionModel().selectedItemProperty().addListener((obs, viejo, nuevo) -> {
             if (nuevo != null) {
                 playlistSeleccionada = nuevo;
@@ -345,6 +417,7 @@ public class AppGUI extends Application {
                     }
                 }
                 tablaCanciones.setItems(cancionesPlaylist);
+                tablaCanciones.refresh();
             }
         });
 
@@ -407,6 +480,7 @@ public class AppGUI extends Application {
                 vistaPlaylists.getSelectionModel().clearSelection();
                 playlistSeleccionada = null;
                 tituloCentral.setText("Biblioteca Principal");
+                tablaCanciones.refresh();
             }
         });
 
@@ -439,6 +513,7 @@ public class AppGUI extends Application {
                         .collect(Collectors.toList());
                 tablaCanciones.setItems(FXCollections.observableArrayList(cancionesFiltradas));
             }
+            tablaCanciones.refresh();
         });
 
         btnLimpiar.setOnAction(evento -> txtBuscar.clear());
@@ -573,7 +648,6 @@ public class AppGUI extends Application {
         layoutPrincipal.setBottom(panelInferior); 
 
         Scene escena = new Scene(layoutPrincipal, 1150, 700); 
-        // Estilo extra para el menú contextual y las celdas
         escena.getRoot().setStyle("-fx-base: #121212; -fx-control-inner-background: #121212; -fx-table-cell-border-color: transparent; -fx-table-header-background-color: #282828;");
         escena.getStylesheets().add("data:text/css,.list-cell { -fx-text-fill: #b3b3b3; -fx-font-weight: bold; } .list-cell:selected { -fx-text-fill: white; -fx-background-color: #282828; } .context-menu { -fx-background-color: #282828; } .menu-item:focused { -fx-background-color: #3e3e3e; }");
 

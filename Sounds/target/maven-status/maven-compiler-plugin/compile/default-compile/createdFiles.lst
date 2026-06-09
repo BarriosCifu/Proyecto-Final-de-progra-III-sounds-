@@ -14,4 +14,5 @@ com\mycompany\sounds\Lanzador.class
 com\mycompany\sounds\ListaSimple.class
 com\mycompany\sounds\Cola.class
 com\mycompany\sounds\ArbolAVL.class
+com\mycompany\sounds\AppGUI$1.class
 com\mycompany\sounds\Cancion.class

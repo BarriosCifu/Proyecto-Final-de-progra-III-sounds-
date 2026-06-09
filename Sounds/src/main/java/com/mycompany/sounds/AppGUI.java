@@ -45,9 +45,10 @@ public class AppGUI extends Application {
     private Label lblTiempoTotal;
     private boolean arrastrandoSlider = false;
 
-    // Variables de la Lista Circular
+    // --- ESTRUCTURAS DE DATOS ---
     private boolean modoRepeticion = false;
-    private ListaCircular listaRepeticion = new ListaCircular();
+    private ListaCircular listaRepeticion = new ListaCircular(); // Para el Loop (Repetir)
+    private Pila historial = new Pila(); // NUEVO: Para el historial de reproducción
 
     @Override
     public void start(Stage escenarioPrincipal) {
@@ -162,14 +163,13 @@ public class AppGUI extends Application {
         
         Button btnRepetir = new Button("🔁");
         Button btnAnterior = new Button("⏮");
-        Button btnPlayPausa = new Button("▶"); // <-- Solo el ícono
+        Button btnPlayPausa = new Button("▶"); 
         Button btnSiguiente = new Button("⏭");
         
         String estiloBotones = "-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 18px; -fx-cursor: hand;";
         btnRepetir.setStyle(estiloBotones);
         btnAnterior.setStyle(estiloBotones);
         btnSiguiente.setStyle(estiloBotones);
-        // Hacemos el ícono de play/pausa un poco más grande y con ancho fijo
         btnPlayPausa.setStyle(estiloBotones + "-fx-font-size: 24px; -fx-min-width: 60px;"); 
         
         barraBotones.getChildren().addAll(btnRepetir, btnAnterior, btnPlayPausa, btnSiguiente);
@@ -187,7 +187,7 @@ public class AppGUI extends Application {
             arrastrandoSlider = false; 
         });
 
-        // --- TIMELINE (AUTO-PLAY Y BARRA DE PROGRESO) ---
+        // --- TIMELINE ---
         Timeline temporizador = new Timeline(new KeyFrame(Duration.millis(200), evento -> {
             if (reproductor.isReproduciendo()) {
                 double progreso = reproductor.getProgreso(); 
@@ -201,7 +201,6 @@ public class AppGUI extends Application {
                 lblTiempoActual.setText(formatearTiempo(segundosActuales));
                 lblTiempoTotal.setText(formatearTiempo(totalSegundos));
                 
-                // AUTO-PLAY
                 if (progreso >= 0.99 && estaReproduciendo) {
                     btnSiguiente.fire(); 
                 }
@@ -216,7 +215,6 @@ public class AppGUI extends Application {
             if (modoRepeticion) {
                 btnRepetir.setStyle(estiloBotones + "-fx-text-fill: #1db954;"); 
                 btnRepetir.setText("🔂"); 
-                
                 listaRepeticion = new ListaCircular();
                 if (cancionActual != null) {
                     listaRepeticion.insertar(cancionActual);
@@ -227,11 +225,18 @@ public class AppGUI extends Application {
             }
         });
 
-        // --- EVENTOS DE INTERFAZ GENERALES ---
+        // --- EVENTOS GENERALES ---
         tablaCanciones.setOnMouseClicked(evento -> {
             if (evento.getButton().equals(MouseButton.PRIMARY) && evento.getClickCount() == 2) {
-                cancionActual = tablaCanciones.getSelectionModel().getSelectedItem();
-                if (cancionActual != null) {
+                Cancion seleccionada = tablaCanciones.getSelectionModel().getSelectedItem();
+                if (seleccionada != null) {
+                    // PILA: Guardamos la canción anterior en el historial antes de cambiarla
+                    if (cancionActual != null && !cancionActual.equals(seleccionada)) {
+                        historial.push(cancionActual);
+                    }
+                    
+                    cancionActual = seleccionada;
+                    
                     if (modoRepeticion) {
                         listaRepeticion = new ListaCircular();
                         listaRepeticion.insertar(cancionActual);
@@ -324,6 +329,9 @@ public class AppGUI extends Application {
                     estaReproduciendo = true;
                 } else {
                     if (!listaObservableCola.isEmpty()) {
+                        // PILA: Historial
+                        if (cancionActual != null) historial.push(cancionActual);
+                        
                         cancionActual = listaObservableCola.remove(0); 
                         tablaCanciones.getSelectionModel().select(cancionActual);
                         if (modoRepeticion) {
@@ -331,7 +339,12 @@ public class AppGUI extends Application {
                             listaRepeticion.insertar(cancionActual);
                         }
                     } else {
-                        cancionActual = tablaCanciones.getSelectionModel().getSelectedItem();
+                        Cancion seleccionada = tablaCanciones.getSelectionModel().getSelectedItem();
+                        if (seleccionada != null && !seleccionada.equals(cancionActual)) {
+                            // PILA: Historial
+                            if (cancionActual != null) historial.push(cancionActual);
+                            cancionActual = seleccionada;
+                        }
                     }
 
                     if (cancionActual != null) {
@@ -354,6 +367,9 @@ public class AppGUI extends Application {
                     estaReproduciendo = true;
                 }
             } else if (!listaObservableCola.isEmpty()) {
+                // PILA: Guardar antes de saltar a la cola
+                if (cancionActual != null) historial.push(cancionActual);
+                
                 cancionActual = listaObservableCola.remove(0); 
                 tablaCanciones.getSelectionModel().select(cancionActual);
                 
@@ -364,6 +380,9 @@ public class AppGUI extends Application {
             } else {
                 int indiceActual = tablaCanciones.getSelectionModel().getSelectedIndex();
                 if (indiceActual >= 0 && indiceActual < tablaCanciones.getItems().size() - 1) {
+                    // PILA: Guardar antes de pasar a la siguiente de la tabla
+                    if (cancionActual != null) historial.push(cancionActual);
+                    
                     tablaCanciones.getSelectionModel().select(indiceActual + 1);
                     cancionActual = tablaCanciones.getSelectionModel().getSelectedItem();
                     
@@ -375,6 +394,7 @@ public class AppGUI extends Application {
             }
         });
 
+        // --- BOTÓN ANTERIOR (AHORA USA LA PILA DEL HISTORIAL LIFO) ---
         btnAnterior.setOnAction(evento -> {
             if (modoRepeticion && listaRepeticion != null) {
                 cancionActual = listaRepeticion.irAnterior();
@@ -385,15 +405,24 @@ public class AppGUI extends Application {
                     estaReproduciendo = true;
                 }
             } else {
-                int indiceActual = tablaCanciones.getSelectionModel().getSelectedIndex();
-                if (indiceActual > 0) {
-                    tablaCanciones.getSelectionModel().select(indiceActual - 1);
-                    cancionActual = tablaCanciones.getSelectionModel().getSelectedItem();
+                // EXTRACCIÓN DE LA PILA
+                Cancion cancionAnterior = historial.pop();
+                
+                if (cancionAnterior != null) {
+                    cancionActual = cancionAnterior;
+                    tablaCanciones.getSelectionModel().select(cancionActual); // La marcamos en la interfaz
                     
                     reproductor.detener();
                     reproductor.reproducir(cancionActual.getRuta());
                     btnPlayPausa.setText("⏸");
                     estaReproduciendo = true;
+                    System.out.println("Historial (Pila): Regresando a " + cancionActual.getNombre());
+                } else {
+                    // Si la pila está vacía (no hay historial), reinicia la canción actual desde cero
+                    if (cancionActual != null) {
+                        reproductor.saltarA(0.0);
+                        System.out.println("Historial vacío. Reiniciando canción.");
+                    }
                 }
             }
         });

@@ -1,5 +1,6 @@
 package com.mycompany.sounds;
 
+
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -71,6 +72,9 @@ public class AppGUI extends Application {
     // Componentes globales para mostrar la carátula y la info de reproducción
     private ImageView vistaCaratula;
     private Label lblInfoCancionActual;
+
+    // NUEVO: Instancia global de tu Árbol AVL para la búsqueda rápida
+    private ArbolAVL arbolBibliotecaCentral = new ArbolAVL();
 
     private boolean modoRepeticion = false;
     private ListaCircular listaRepeticion = new ListaCircular(); 
@@ -195,6 +199,29 @@ public class AppGUI extends Application {
         Button btnLimpiar = new Button("✖ Limpiar");
         btnLimpiar.setStyle("-fx-background-color: transparent; -fx-text-fill: gray; -fx-cursor: hand;");
         barraBusqueda.getChildren().addAll(txtBuscar, btnLimpiar);
+
+        // --- INTEGRACIÓN: LÓGICA DE BÚSQUEDA EN TIEMPO REAL CON ÁRBOL AVL ---
+        txtBuscar.textProperty().addListener((observable, valorViejo, valorNuevo) -> {
+            if (listaOriginalCanciones != null && !listaOriginalCanciones.isEmpty()) {
+                // Si estamos parados en la biblioteca principal, usamos la velocidad del AVL
+                if (tituloCentral.getText().equals("Biblioteca Principal")) {
+                    List<Cancion> filtradas = arbolBibliotecaCentral.buscarPorFiltro(valorNuevo);
+                    tablaCanciones.setItems(FXCollections.observableArrayList(filtradas));
+                } else {
+                    // Si estamos dentro de una playlist personalizada, hacemos filtro lineal sobre sus elementos
+                    List<Cancion> filtradasLista = listaOriginalCanciones.stream()
+                        .filter(c -> c.getNombre().toLowerCase().contains(valorNuevo.toLowerCase()) || 
+                                     c.getArtista().toLowerCase().contains(valorNuevo.toLowerCase()))
+                        .collect(Collectors.toList());
+                    tablaCanciones.setItems(FXCollections.observableArrayList(filtradasLista));
+                }
+            }
+        });
+
+        btnLimpiar.setOnAction(e -> {
+            txtBuscar.clear();
+            txtBuscar.requestFocus();
+        });
 
         HBox encabezadoBiblioteca = new HBox(15);
         encabezadoBiblioteca.setAlignment(Pos.CENTER_LEFT);
@@ -394,19 +421,21 @@ public class AppGUI extends Application {
                 lector.leerCarpetaRecursivamente(carpetaSeleccionada.getAbsolutePath());
                 List<Cancion> cancionesLeidas = lector.getCancionesCargadas();
                 
-                long inicioAVL = System.nanoTime();
-                ArbolAVL arbolBiblioteca = new ArbolAVL();
+                // Inicializamos la variable global del Árbol AVL para las búsquedas
+                arbolBibliotecaCentral = new ArbolAVL();
                 for (Cancion c : cancionesLeidas) {
-                    arbolBiblioteca.insertar(c); 
+                    arbolBibliotecaCentral.insertar(c); 
                 }
+                
+                long inicioAVL = System.nanoTime();
+                ArbolAVL arbolTemporal = new ArbolAVL();
+                for (Cancion c : cancionesLeidas) { arbolTemporal.insertar(c); }
                 long finAVL = System.nanoTime();
                 double tiempoAVL = (finAVL - inicioAVL) / 1_000_000.0;
                 
                 long inicioBinario = System.nanoTime();
                 ArbolBinarioBusqueda arbolNormal = new ArbolBinarioBusqueda();
-                for (Cancion c : cancionesLeidas) {
-                    arbolNormal.insertar(c); 
-                }
+                for (Cancion c : cancionesLeidas) { arbolNormal.insertar(c); }
                 long finBinario = System.nanoTime();
                 double tiempoBinario = (finBinario - inicioBinario) / 1_000_000.0;
 
@@ -422,7 +451,7 @@ public class AppGUI extends Application {
                 alerta.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
                 alerta.showAndWait();
                 
-                listaOriginalCanciones = arbolBiblioteca.obtenerListaInOrden();
+                listaOriginalCanciones = arbolBibliotecaCentral.obtenerListaInOrden();
                 listaObservableCanciones = FXCollections.observableArrayList(listaOriginalCanciones);
                 tablaCanciones.setItems(listaObservableCanciones);
                 
@@ -473,13 +502,10 @@ public class AppGUI extends Application {
         escenarioPrincipal.show();
     }
 
-    // --- NUEVO MÉTODO: ACTUALIZA LA CARÁTULA Y LA INFO (CON IMAGEN POR DEFECTO) ---
     private void actualizarCaratulaYMetadatos() {
         if (cancionActual != null) {
-            // Setea el texto inferior
             lblInfoCancionActual.setText(cancionActual.getNombre() + "\n" + cancionActual.getArtista());
             
-            // 1. Intentamos cargar la imagen incrustada en el MP3
             byte[] bytesImagen = cancionActual.getImagenCaratula();
             if (bytesImagen != null && bytesImagen.length > 0) {
                 try {
@@ -487,24 +513,25 @@ public class AppGUI extends Application {
                     Image img = new Image(bais);
                     vistaCaratula.setImage(img);
                 } catch (Exception e) {
-                    cargarImagenPorDefecto(); // Si hay error al decodificar, usa el logo
+                    cargarImagenPorDefecto(); 
                 }
             } else {
-                // 2. Si el MP3 no trae imagen, cargamos tu logo "default.png"
                 cargarImagenPorDefecto();
             }
         }
     }
 
-    // Método auxiliar para mantener el código limpio
     private void cargarImagenPorDefecto() {
         try {
-            File archivoLogo = new File("default.png");
+            File archivoLogo = new File("default"); // Sin extensión .png debido a la configuración de Windows
+            if (!archivoLogo.exists()) {
+                archivoLogo = new File("default.png"); // Respaldo por si acaso
+            }
             if (archivoLogo.exists()) {
                 Image imgDefault = new Image(archivoLogo.toURI().toString());
                 vistaCaratula.setImage(imgDefault);
             } else {
-                vistaCaratula.setImage(null); // Si olvidaste poner el archivo, se queda en blanco
+                vistaCaratula.setImage(null); 
             }
         } catch (Exception ex) {
             vistaCaratula.setImage(null);

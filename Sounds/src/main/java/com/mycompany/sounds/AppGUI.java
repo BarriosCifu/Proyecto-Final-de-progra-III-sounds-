@@ -668,7 +668,7 @@ public class AppGUI extends Application {
         
         try {
             File archivoLogo = new File("default"); 
-            if (!archivoLogo.exists()) archivoLogo = new File("default.png"); 
+            if (!archivoLogo.exists()) archivoLogo = new File("Sounds.png"); 
             if (archivoLogo.exists()) {
                 escenarioPrincipal.getIcons().add(new Image(archivoLogo.toURI().toString()));
             }

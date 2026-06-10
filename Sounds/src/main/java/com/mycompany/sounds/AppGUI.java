@@ -68,7 +68,7 @@ public class AppGUI extends Application {
     
     private Slider sliderVolumen;
 
-    // NUEVO: Componentes globales para mostrar la carátula y la info de reproducción
+    // Componentes globales para mostrar la carátula y la info de reproducción
     private ImageView vistaCaratula;
     private Label lblInfoCancionActual;
 
@@ -123,7 +123,7 @@ public class AppGUI extends Application {
         vistaPlaylists.setStyle("-fx-background-color: transparent; -fx-control-inner-background: #000000; -fx-border-color: transparent;");
         VBox.setVgrow(vistaPlaylists, Priority.ALWAYS); 
         
-        // NUEVO: Contenedor visual para la carátula del álbum (Estilo widget de Spotify)
+        // Contenedor visual para la carátula del álbum (Estilo widget de Spotify)
         VBox contenedorCaratula = new VBox(8);
         contenedorCaratula.setAlignment(Pos.CENTER);
         contenedorCaratula.setStyle("-fx-background-color: #121212; -fx-background-radius: 8; -fx-padding: 12px; -fx-border-color: #282828; -fx-border-radius: 8;");
@@ -140,7 +140,6 @@ public class AppGUI extends Application {
         
         contenedorCaratula.getChildren().addAll(vistaCaratula, lblInfoCancionActual);
         
-        // Añadimos el contenedor de carátulas al final del menú izquierdo
         menuIzquierdo.getChildren().addAll(textoMenu, btnCargarMusica, textoPlaylists, barraPersistencia, btnNuevaPlaylist, vistaPlaylists, contenedorCaratula);
 
         // --- LÓGICA DE GUARDAR Y CARGAR ---
@@ -464,7 +463,7 @@ public class AppGUI extends Application {
             }
         });
 
-        Scene escena = new Scene(layoutPrincipal, 1150, 750); // Aumentado ligeramente de alto para la carátula
+        Scene escena = new Scene(layoutPrincipal, 1150, 750); 
         escena.getRoot().setStyle("-fx-base: #121212; -fx-control-inner-background: #121212; -fx-table-cell-border-color: transparent; -fx-table-header-background-color: #282828;");
         escena.getStylesheets().add("data:text/css,.list-cell { -fx-text-fill: #b3b3b3; -fx-font-weight: bold; } .list-cell:selected { -fx-text-fill: white; -fx-background-color: #282828; } .context-menu { -fx-background-color: #282828; } .menu-item:focused { -fx-background-color: #3e3e3e; }");
 
@@ -474,13 +473,13 @@ public class AppGUI extends Application {
         escenarioPrincipal.show();
     }
 
-    // --- NUEVO MÉTODO: ACTUALIZA LA CARÁTULA Y LA INFO EN LA INTERFAZ ---
+    // --- NUEVO MÉTODO: ACTUALIZA LA CARÁTULA Y LA INFO (CON IMAGEN POR DEFECTO) ---
     private void actualizarCaratulaYMetadatos() {
         if (cancionActual != null) {
             // Setea el texto inferior
             lblInfoCancionActual.setText(cancionActual.getNombre() + "\n" + cancionActual.getArtista());
             
-            // Decodifica el byte[] a una Imagen de JavaFX
+            // 1. Intentamos cargar la imagen incrustada en el MP3
             byte[] bytesImagen = cancionActual.getImagenCaratula();
             if (bytesImagen != null && bytesImagen.length > 0) {
                 try {
@@ -488,12 +487,27 @@ public class AppGUI extends Application {
                     Image img = new Image(bais);
                     vistaCaratula.setImage(img);
                 } catch (Exception e) {
-                    vistaCaratula.setImage(null); // Si el byte array está corrupto, limpia
+                    cargarImagenPorDefecto(); // Si hay error al decodificar, usa el logo
                 }
             } else {
-                // Si el archivo MP3 no tiene carátula interna, limpia el contenedor
-                vistaCaratula.setImage(null);
+                // 2. Si el MP3 no trae imagen, cargamos tu logo "default.png"
+                cargarImagenPorDefecto();
             }
+        }
+    }
+
+    // Método auxiliar para mantener el código limpio
+    private void cargarImagenPorDefecto() {
+        try {
+            File archivoLogo = new File("default.png");
+            if (archivoLogo.exists()) {
+                Image imgDefault = new Image(archivoLogo.toURI().toString());
+                vistaCaratula.setImage(imgDefault);
+            } else {
+                vistaCaratula.setImage(null); // Si olvidaste poner el archivo, se queda en blanco
+            }
+        } catch (Exception ex) {
+            vistaCaratula.setImage(null);
         }
     }
 
@@ -502,9 +516,10 @@ public class AppGUI extends Application {
             reproductor.detener(); 
             reproductor.reproducir(cancionActual.getRuta()); 
             reproductor.setVolumen(sliderVolumen.getValue());
-            actualizarCaratulaYMetadatos(); // Llama a la actualización visual
+            actualizarCaratulaYMetadatos(); 
         } 
     }
+    
     private String formatearTiempo(int seg) { return String.format("%d:%02d", seg / 60, seg % 60); }
     public static void main(String[] args) { launch(args); }
 }

@@ -43,6 +43,7 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
@@ -201,7 +202,26 @@ public class AppGUI extends Application {
         Label lblTiempoABB = new Label("⏱ ABB: 0.00 ms");
         lblTiempoABB.setStyle("-fx-text-fill: #ff4d4d; -fx-font-weight: bold; -fx-font-size: 13px;");
         
-        barraBusqueda.getChildren().addAll(txtBuscar, btnLimpiar, lblTiempoAVL, lblTiempoABB);
+        // Espaciador para empujar el botón de configuración a la derecha
+        Region espaciadorBusqueda = new Region();
+        HBox.setHgrow(espaciadorBusqueda, Priority.ALWAYS);
+
+        // Botón de Configuración (Texto visible)
+        Button btnConfiguracion = new Button("⚙ Ajustes");
+        btnConfiguracion.setStyle("-fx-background-color: #282828; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 5; -fx-padding: 5 10 5 10;");
+        btnConfiguracion.setOnMouseEntered(e -> btnConfiguracion.setStyle("-fx-background-color: #3e3e3e; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 5; -fx-padding: 5 10 5 10;"));
+        btnConfiguracion.setOnMouseExited(e -> btnConfiguracion.setStyle("-fx-background-color: #282828; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 5; -fx-padding: 5 10 5 10;"));
+        
+        btnConfiguracion.setOnAction(e -> {
+            Alert alertaConfig = new Alert(Alert.AlertType.INFORMATION);
+            alertaConfig.setTitle("Configuraciones");
+            alertaConfig.setHeaderText("Ajustes del Reproductor");
+            alertaConfig.setContentText("Aquí alojaremos las configuraciones de personalización del reproductor próximamente.");
+            alertaConfig.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
+            alertaConfig.showAndWait();
+        });
+
+        barraBusqueda.getChildren().addAll(txtBuscar, btnLimpiar, lblTiempoAVL, lblTiempoABB, espaciadorBusqueda, btnConfiguracion);
 
         HBox encabezadoBiblioteca = new HBox(15);
         encabezadoBiblioteca.setAlignment(Pos.BASELINE_LEFT); 
@@ -500,7 +520,6 @@ public class AppGUI extends Application {
                 arbolBibliotecaCentral = new ArbolAVL();
                 arbolNormalCentral = new ArbolBinarioBusqueda();
                 
-                // 1. Cronometrar inserción en Árbol AVL
                 long inicioAVL = System.nanoTime();
                 for (Cancion c : cancionesLeidas) {
                     arbolBibliotecaCentral.insertar(c); 
@@ -508,7 +527,6 @@ public class AppGUI extends Application {
                 long finAVL = System.nanoTime();
                 double msAVL = (finAVL - inicioAVL) / 1_000_000.0;
                 
-                // 2. Cronometrar inserción en Árbol Binario Normal (ABB)
                 long inicioABB = System.nanoTime();
                 for (Cancion c : cancionesLeidas) {
                     arbolNormalCentral.insertar(c);
@@ -516,7 +534,6 @@ public class AppGUI extends Application {
                 long finABB = System.nanoTime();
                 double msABB = (finABB - inicioABB) / 1_000_000.0;
                 
-                // --- ALERTA DE BENCHMARKING DE CARGA ---
                 Alert alerta = new Alert(Alert.AlertType.INFORMATION);
                 alerta.setTitle("Análisis de Rendimiento");
                 alerta.setHeaderText("Comparación de Carga de Árboles");

@@ -70,8 +70,11 @@ public class AppGUI extends Application {
 
     private ImageView vistaCaratula;
     private Label lblInfoCancionActual;
+    
+    // NUEVO: Etiqueta para el contador dinámico de canciones
+    private Label lblContadorCanciones;
 
-    // --- VARIABLES GLOBALES DE LOS ÁRBOLES PARA EL BENCHMARKING ---
+    // Variables globales de los Árboles
     private ArbolAVL arbolBibliotecaCentral = new ArbolAVL();
     private ArbolBinarioBusqueda arbolNormalCentral = new ArbolBinarioBusqueda();
 
@@ -195,7 +198,6 @@ public class AppGUI extends Application {
         Button btnLimpiar = new Button("✖ Limpiar");
         btnLimpiar.setStyle("-fx-background-color: transparent; -fx-text-fill: gray; -fx-cursor: hand;");
         
-        // --- NUEVO: ETIQUETAS DE BENCHMARKING (TIEMPO DE BÚSQUEDA) ---
         Label lblTiempoAVL = new Label("⏱ AVL: 0.00 ms");
         lblTiempoAVL.setStyle("-fx-text-fill: #1db954; -fx-font-weight: bold; -fx-font-size: 13px;");
         Label lblTiempoABB = new Label("⏱ ABB: 0.00 ms");
@@ -203,28 +205,38 @@ public class AppGUI extends Application {
         
         barraBusqueda.getChildren().addAll(txtBuscar, btnLimpiar, lblTiempoAVL, lblTiempoABB);
 
-        // --- LÓGICA DE BÚSQUEDA Y BENCHMARKING EN TIEMPO REAL ---
+        // --- ENCABEZADO Y CONTADOR DE CANCIONES ---
+        HBox encabezadoBiblioteca = new HBox(15);
+        encabezadoBiblioteca.setAlignment(Pos.BASELINE_LEFT); // Alinea el texto en la base
+        
+        tituloCentral = new Label("Biblioteca Principal");
+        tituloCentral.setStyle("-fx-text-fill: white; -fx-font-size: 24px; -fx-font-weight: bold;");
+        
+        lblContadorCanciones = new Label("0 canciones");
+        lblContadorCanciones.setStyle("-fx-text-fill: #b3b3b3; -fx-font-size: 14px; -fx-font-weight: bold;");
+        
+        encabezadoBiblioteca.getChildren().addAll(tituloCentral, lblContadorCanciones);
+        
+        // --- LÓGICA DE BÚSQUEDA Y BENCHMARKING ---
         txtBuscar.textProperty().addListener((observable, valorViejo, valorNuevo) -> {
             if (listaOriginalCanciones != null && !listaOriginalCanciones.isEmpty()) {
                 if (tituloCentral.getText().equals("Biblioteca Principal")) {
                     
-                    // 1. Cronometrar Árbol AVL
                     long inicioAVL = System.nanoTime();
                     List<Cancion> filtradasAVL = arbolBibliotecaCentral.buscarPorFiltro(valorNuevo);
                     long finAVL = System.nanoTime();
                     double msAVL = (finAVL - inicioAVL) / 1_000_000.0;
                     
-                    // 2. Cronometrar Árbol Binario de Búsqueda Normal
                     long inicioABB = System.nanoTime();
-                    arbolNormalCentral.buscarPorFiltro(valorNuevo); // Solo medimos tiempo, no usamos el resultado
+                    arbolNormalCentral.buscarPorFiltro(valorNuevo);
                     long finABB = System.nanoTime();
                     double msABB = (finABB - inicioABB) / 1_000_000.0;
                     
-                    // 3. Actualizar la Interfaz
                     lblTiempoAVL.setText(String.format("⏱ AVL: %.4f ms", msAVL));
                     lblTiempoABB.setText(String.format("⏱ ABB: %.4f ms", msABB));
                     
                     tablaCanciones.setItems(FXCollections.observableArrayList(filtradasAVL));
+                    lblContadorCanciones.setText(filtradasAVL.size() + " resultados");
                     
                 } else {
                     List<Cancion> filtradasLista = listaOriginalCanciones.stream()
@@ -232,6 +244,7 @@ public class AppGUI extends Application {
                                      c.getArtista().toLowerCase().contains(valorNuevo.toLowerCase()))
                         .collect(Collectors.toList());
                     tablaCanciones.setItems(FXCollections.observableArrayList(filtradasLista));
+                    lblContadorCanciones.setText(filtradasLista.size() + " resultados");
                 }
             }
         });
@@ -241,14 +254,11 @@ public class AppGUI extends Application {
             txtBuscar.requestFocus();
             lblTiempoAVL.setText("⏱ AVL: 0.00 ms");
             lblTiempoABB.setText("⏱ ABB: 0.00 ms");
+            if (tituloCentral.getText().equals("Biblioteca Principal") && listaOriginalCanciones != null) {
+                lblContadorCanciones.setText(listaOriginalCanciones.size() + " canciones");
+            }
         });
 
-        HBox encabezadoBiblioteca = new HBox(15);
-        encabezadoBiblioteca.setAlignment(Pos.CENTER_LEFT);
-        tituloCentral = new Label("Biblioteca Principal");
-        tituloCentral.setStyle("-fx-text-fill: white; -fx-font-size: 24px; -fx-font-weight: bold;");
-        encabezadoBiblioteca.getChildren().addAll(tituloCentral);
-        
         tablaCanciones = new TableView<>();
         tablaCanciones.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         
@@ -399,7 +409,27 @@ public class AppGUI extends Application {
         barraBotones.getChildren().addAll(btnAleatorio, btnRepetir, btnAnterior, btnPlayPausa, btnSiguiente, btnVerFila, contenedorVolumen);
         panelInferior.getChildren().addAll(contenedorProgreso, barraBotones);
 
-        // --- LÓGICA GENERAL ---
+        // --- LÓGICA GENERAL Y EVENTOS ---
+        
+        // Clic en listas de reproducción para mostrarlas
+        vistaPlaylists.getSelectionModel().selectedItemProperty().addListener((obs, viejoValor, nuevoValor) -> {
+            if (nuevoValor != null) {
+                playlistSeleccionada = nuevoValor;
+                tituloCentral.setText(nuevoValor);
+                ListaSimple lista = mapaPlaylists.get(nuevoValor);
+                if (lista != null) {
+                    List<Cancion> cancionesPlaylist = new ArrayList<>();
+                    NodoLista actual = lista.getCabeza();
+                    while(actual != null) {
+                        cancionesPlaylist.add(actual.getCancion());
+                        actual = actual.getSiguiente();
+                    }
+                    tablaCanciones.setItems(FXCollections.observableArrayList(cancionesPlaylist));
+                    lblContadorCanciones.setText(cancionesPlaylist.size() + " canciones");
+                }
+            }
+        });
+
         sliderVolumen.valueProperty().addListener((observable, viejoValor, nuevoValor) -> {
             if (reproductor != null) { reproductor.setVolumen(nuevoValor.doubleValue()); }
         });
@@ -419,7 +449,16 @@ public class AppGUI extends Application {
         }));
         temporizador.setCycleCount(Timeline.INDEFINITE); temporizador.play();
 
-        textoMenu.setOnMouseClicked(e -> { vistaPlaylists.getSelectionModel().clearSelection(); playlistSeleccionada = null; tituloCentral.setText("Biblioteca Principal"); if (listaOriginalCanciones != null) { tablaCanciones.setItems(FXCollections.observableArrayList(listaOriginalCanciones)); tablaCanciones.refresh(); } });
+        textoMenu.setOnMouseClicked(e -> { 
+            vistaPlaylists.getSelectionModel().clearSelection(); 
+            playlistSeleccionada = null; 
+            tituloCentral.setText("Biblioteca Principal"); 
+            if (listaOriginalCanciones != null) { 
+                tablaCanciones.setItems(FXCollections.observableArrayList(listaOriginalCanciones)); 
+                tablaCanciones.refresh(); 
+                lblContadorCanciones.setText(listaOriginalCanciones.size() + " canciones");
+            } 
+        });
 
         btnNuevaPlaylist.setOnAction(e -> { TextInputDialog d = new TextInputDialog(); d.setTitle("Nueva Playlist"); d.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;"); d.showAndWait().ifPresent(n -> { if (!n.trim().isEmpty() && !nombresPlaylists.contains(n)) { nombresPlaylists.add(n); mapaPlaylists.put(n, new ListaSimple()); } }); });
 
@@ -449,6 +488,9 @@ public class AppGUI extends Application {
                 listaOriginalCanciones = arbolBibliotecaCentral.obtenerListaInOrden();
                 listaObservableCanciones = FXCollections.observableArrayList(listaOriginalCanciones);
                 tablaCanciones.setItems(listaObservableCanciones);
+                
+                // Actualiza el contador general al cargar la música
+                lblContadorCanciones.setText(listaOriginalCanciones.size() + " canciones");
                 
                 modoRepeticion = false; modoAleatorio = false;
                 btnRepetir.setStyle(estiloBotones); btnAleatorio.setStyle(estiloBotones);

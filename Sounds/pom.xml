@@ -25,6 +25,18 @@
             <artifactId>javafx-fxml</artifactId>
             <version>19</version>
         </dependency>
+        
+        <dependency>
+            <groupId>org.openjfx</groupId>
+            <artifactId>javafx-media</artifactId>
+            <version>19</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.mpatric</groupId>
+            <artifactId>mp3agic</artifactId>
+            <version>0.9.1</version>
+        </dependency>
     </dependencies>
     
     <properties>

@@ -1,20 +1,16 @@
 package com.mycompany.sounds;
 
 import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import javazoom.jl.player.Player;
+import javafx.scene.media.Media;
+import javafx.scene.media.MediaPlayer;
+import javafx.util.Duration;
 
 public class Reproductor {
-    private Player player;
-    private Thread hiloReproduccion;
+    
+    private MediaPlayer mediaPlayer;
     private String rutaActual;
-    
-    private FileInputStream fis;
-    private long pausaPunto; 
     private boolean enPausa;
-    
-    private long bytesTotales; 
+    private double volumenActual = 0.5; // El volumen arranca a la mitad (50%)
 
     public Reproductor() {
         this.enPausa = false;
@@ -27,105 +23,77 @@ public class Reproductor {
         
         try {
             File archivo = new File(rutaArchivo);
-            this.bytesTotales = archivo.length();
+            // Convertimos la ruta del archivo a formato URI requerido por JavaFX
+            Media media = new Media(archivo.toURI().toString());
+            mediaPlayer = new MediaPlayer(media);
+            
+            // Aplicamos automáticamente el volumen actual de la barra
+            mediaPlayer.setVolume(volumenActual);
+            
+            mediaPlayer.play();
         } catch (Exception e) {
-            this.bytesTotales = 0;
+            System.out.println("Error en la reproducción con JavaFX Media: " + e.getMessage());
         }
-        
-        iniciarHilo(0);
-    }
-
-    private void iniciarHilo(long saltarBytes) {
-        hiloReproduccion = new Thread(() -> {
-            try {
-                fis = new FileInputStream(rutaActual);
-                if (saltarBytes > 0) {
-                    fis.skip(saltarBytes); 
-                }
-                player = new Player(fis);
-                player.play();
-            } catch (Exception e) {
-                System.out.println("Error en la reproducción: " + e.getMessage());
-            }
-        });
-        hiloReproduccion.start();
     }
 
     public void detener() {
-        if (player != null) {
-            player.close();
-            player = null;
-        }
-        if (hiloReproduccion != null) {
-            hiloReproduccion.interrupt();
-            hiloReproduccion = null;
+        if (mediaPlayer != null) {
+            mediaPlayer.stop();
+            mediaPlayer.dispose(); // Libera por completo la memoria del archivo anterior
+            mediaPlayer = null;
         }
     }
 
     public void pausar() {
-        if (player != null && !enPausa) {
-            try {
-                enPausa = true;
-                pausaPunto = fis.available();
-                player.close();
-                if (hiloReproduccion != null) {
-                    hiloReproduccion.interrupt();
-                }
-            } catch (IOException e) {
-                System.out.println("Error al pausar: " + e.getMessage());
-            }
+        if (mediaPlayer != null && mediaPlayer.getStatus() == MediaPlayer.Status.PLAYING) {
+            mediaPlayer.pause();
+            enPausa = true;
         }
     }
 
     public void continuar() {
-        if (enPausa && rutaActual != null) {
+        if (mediaPlayer != null && enPausa) {
+            mediaPlayer.play();
             enPausa = false;
-            try {
-                FileInputStream fisTemp = new FileInputStream(rutaActual);
-                long totalBytesTemp = fisTemp.available();
-                fisTemp.close();
-                
-                long bytesASaltar = totalBytesTemp - pausaPunto; 
-                iniciarHilo(bytesASaltar);
-            } catch (IOException e) {
-                System.out.println("Error al reanudar: " + e.getMessage());
-            }
         }
     }
 
-    // --- EL TRUCO PARA ADELANTAR LA CANCIÓN ---
     public void saltarA(double porcentaje) {
-        if (rutaActual != null && bytesTotales > 0) {
-            detener(); // Apagamos el reproductor actual
-            long bytesASaltar = (long) (bytesTotales * porcentaje); // Calculamos hasta qué byte saltar
-            this.enPausa = false;
-            iniciarHilo(bytesASaltar); // Lo encendemos de nuevo desde ese punto
+        if (mediaPlayer != null) {
+            Duration total = mediaPlayer.getTotalDuration();
+            if (total != Duration.UNKNOWN) {
+                // Multiplicamos la duración total por el porcentaje del slider de progreso
+                mediaPlayer.seek(total.multiply(porcentaje));
+            }
         }
     }
 
     public double getProgreso() {
-        if (fis != null && bytesTotales > 0 && !enPausa) {
-            try {
-                long bytesRestantes = fis.available();
-                long bytesLeidos = bytesTotales - bytesRestantes;
-                return (double) bytesLeidos / bytesTotales;
-            } catch (IOException e) {
-                return 0.0;
-            }
+        if (mediaPlayer != null && mediaPlayer.getTotalDuration() != Duration.UNKNOWN) {
+            return mediaPlayer.getCurrentTime().toMillis() / mediaPlayer.getTotalDuration().toMillis();
         }
         return 0.0;
     }
 
-    // --- FÓRMULA CORREGIDA PARA AUDIOS DE ALTA CALIDAD ---
     public int getDuracionEstimadaSegundos() {
-        if (bytesTotales > 0) {
-            // Un MP3 de 320 kbps consume aprox. 40,000 bytes por segundo
-            return (int) (bytesTotales / 40000); 
+        if (mediaPlayer != null && mediaPlayer.getTotalDuration() != Duration.UNKNOWN) {
+            return (int) mediaPlayer.getTotalDuration().toSeconds();
         }
         return 0;
     }
 
     public boolean isReproduciendo() {
-        return player != null && !enPausa;
+        return mediaPlayer != null && mediaPlayer.getStatus() == MediaPlayer.Status.PLAYING;
+    }
+
+    // ==========================================
+    // --- AQUÍ ESTÁ EL MÉTODO QUE FALTABA ---
+    // ==========================================
+    public void setVolumen(double nivelVolumen) {
+        this.volumenActual = nivelVolumen; 
+        if (mediaPlayer != null) {
+            // El MediaPlayer de JavaFX acepta valores directamente de 0.0 a 1.0
+            mediaPlayer.setVolume(nivelVolumen);
+        }
     }
 }

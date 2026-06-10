@@ -62,6 +62,9 @@ public class AppGUI extends Application {
     private Label lblTiempoActual;
     private Label lblTiempoTotal;
     private boolean arrastrandoSlider = false;
+    
+    // NUEVO: Variable para el control de volumen
+    private Slider sliderVolumen;
 
     private boolean modoRepeticion = false;
     private ListaCircular listaRepeticion = new ListaCircular(); 
@@ -297,14 +300,12 @@ public class AppGUI extends Application {
         lblTiempoTotal = new Label("0:00"); lblTiempoTotal.setStyle("-fx-text-fill: #b3b3b3; -fx-font-size: 12px;");
         contenedorProgreso.getChildren().addAll(lblTiempoActual, sliderProgreso, lblTiempoTotal);
 
-        HBox barraBotones = new HBox(25); 
+        HBox barraBotones = new HBox(20); 
         barraBotones.setAlignment(Pos.CENTER);
         
         Button btnAleatorio = new Button("🔀"); Button btnRepetir = new Button("🔁");
         Button btnAnterior = new Button("⏮"); Button btnPlayPausa = new Button("▶"); 
         Button btnSiguiente = new Button("⏭");
-        
-        // --- BOTÓN DE FILA (ÍCONO) ---
         Button btnVerFila = new Button(""); 
         
         String estiloBotones = "-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 18px; -fx-cursor: hand;";
@@ -313,10 +314,33 @@ public class AppGUI extends Application {
         btnVerFila.setStyle(estiloBotones + "-fx-font-size: 16px;"); 
         btnPlayPausa.setStyle(estiloBotones + "-fx-font-size: 24px; -fx-min-width: 60px;"); 
         
-        barraBotones.getChildren().addAll(btnAleatorio, btnRepetir, btnAnterior, btnPlayPausa, btnSiguiente, btnVerFila);
+        // --- NUEVO: CONTENEDOR DEL SLIDER DE VOLUMEN ---
+        Label lblVolumen = new Label("🔊");
+        lblVolumen.setStyle("-fx-text-fill: #b3b3b3; -fx-font-size: 16px;");
+        
+        // Inicializa el slider de 0.0 a 1.0, y arranca a la mitad (0.5)
+        sliderVolumen = new Slider(0.0, 1.0, 0.5); 
+        sliderVolumen.setPrefWidth(80);
+        sliderVolumen.setStyle("-fx-base: #181818; -fx-accent: #1db954; -fx-cursor: hand;");
+        
+        HBox contenedorVolumen = new HBox(8);
+        contenedorVolumen.setAlignment(Pos.CENTER);
+        contenedorVolumen.setStyle("-fx-padding: 0 0 0 20px;"); // Un poco de espacio a la izquierda
+        contenedorVolumen.getChildren().addAll(lblVolumen, sliderVolumen);
+        
+        barraBotones.getChildren().addAll(btnAleatorio, btnRepetir, btnAnterior, btnPlayPausa, btnSiguiente, btnVerFila, contenedorVolumen);
         panelInferior.getChildren().addAll(contenedorProgreso, barraBotones);
 
         // --- LÓGICA GENERAL ---
+        
+        // NUEVO: Lógica del cambio de volumen
+        sliderVolumen.valueProperty().addListener((observable, viejoValor, nuevoValor) -> {
+            if (reproductor != null) {
+                // Mandamos el valor al reproductor (entre 0.0 y 1.0)
+                reproductor.setVolumen(nuevoValor.doubleValue());
+            }
+        });
+
         sliderProgreso.setOnMousePressed(e -> arrastrandoSlider = true);
         sliderProgreso.setOnMouseReleased(e -> { if(cancionActual!=null) reproductor.saltarA(sliderProgreso.getValue()/100.0); btnPlayPausa.setText("⏸"); estaReproduciendo=true; arrastrandoSlider=false; });
 
@@ -341,23 +365,16 @@ public class AppGUI extends Application {
 
         tablaCanciones.setOnMouseClicked(e -> { if (e.getButton().equals(MouseButton.PRIMARY) && e.getClickCount() == 2) { Cancion s = tablaCanciones.getSelectionModel().getSelectedItem(); if (s != null) { if (cancionActual != null && !cancionActual.equals(s)) historial.push(cancionActual); cancionActual = s; reproducirActual(); btnPlayPausa.setText("⏸"); estaReproduciendo=true; } } });
         
-        // =====================================================================
-        // --- AQUÍ ESTÁ LA INTEGRACIÓN CON ÁRBOLES Y EL BENCHMARKING ---
-        // =====================================================================
         btnCargarMusica.setOnAction(evento -> {
             DirectoryChooser selectorDirectorio = new DirectoryChooser();
             selectorDirectorio.setTitle("Selecciona la carpeta con tu música");
             File carpetaSeleccionada = selectorDirectorio.showDialog(escenarioPrincipal);
             
             if (carpetaSeleccionada != null) {
-                // 1. Lectura de MP3s
                 LectorArchivos lector = new LectorArchivos();
                 lector.leerCarpetaRecursivamente(carpetaSeleccionada.getAbsolutePath());
                 List<Cancion> cancionesLeidas = lector.getCancionesCargadas();
                 
-                // 2. BENCHMARKING: ÁRBOL AVL vs ÁRBOL BINARIO DE BÚSQUEDA
-                
-                // Medir tiempo del Árbol AVL (Con balanceo)
                 long inicioAVL = System.nanoTime();
                 ArbolAVL arbolBiblioteca = new ArbolAVL();
                 for (Cancion c : cancionesLeidas) {
@@ -366,7 +383,6 @@ public class AppGUI extends Application {
                 long finAVL = System.nanoTime();
                 double tiempoAVL = (finAVL - inicioAVL) / 1_000_000.0;
                 
-                // Medir tiempo de tu Árbol Binario de Búsqueda (Sin balanceo)
                 long inicioBinario = System.nanoTime();
                 ArbolBinarioBusqueda arbolNormal = new ArbolBinarioBusqueda();
                 for (Cancion c : cancionesLeidas) {
@@ -375,7 +391,6 @@ public class AppGUI extends Application {
                 long finBinario = System.nanoTime();
                 double tiempoBinario = (finBinario - inicioBinario) / 1_000_000.0;
 
-                // Mostrar mensaje en pantalla
                 Alert alerta = new Alert(Alert.AlertType.INFORMATION);
                 alerta.setTitle("Análisis de Rendimiento");
                 alerta.setHeaderText("Comparación de Carga de Árboles");
@@ -388,23 +403,14 @@ public class AppGUI extends Application {
                 alerta.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
                 alerta.showAndWait();
                 
-                // 3. Extracción de lista en InOrden (Alfabéticamente desde el AVL)
                 listaOriginalCanciones = arbolBiblioteca.obtenerListaInOrden();
-                
-                // 4. Pasar a la interfaz gráfica
                 listaObservableCanciones = FXCollections.observableArrayList(listaOriginalCanciones);
                 tablaCanciones.setItems(listaObservableCanciones);
                 
-                // Reseteos visuales
-                modoRepeticion = false;
-                modoAleatorio = false;
-                btnRepetir.setStyle(estiloBotones);
-                btnAleatorio.setStyle(estiloBotones);
-                
-                vistaPlaylists.getSelectionModel().clearSelection();
-                playlistSeleccionada = null;
-                tituloCentral.setText("Biblioteca Principal");
-                tablaCanciones.refresh();
+                modoRepeticion = false; modoAleatorio = false;
+                btnRepetir.setStyle(estiloBotones); btnAleatorio.setStyle(estiloBotones);
+                vistaPlaylists.getSelectionModel().clearSelection(); playlistSeleccionada = null;
+                tituloCentral.setText("Biblioteca Principal"); tablaCanciones.refresh();
             }
         });
 
@@ -423,7 +429,6 @@ public class AppGUI extends Application {
 
         btnAnterior.setOnAction(e -> { Cancion ant = historial.pop(); if (ant != null) { cancionActual = ant; reproducirActual(); btnPlayPausa.setText("⏸"); } else if (cancionActual != null) reproductor.saltarA(0.0); });
 
-        // --- LÓGICA DE MOSTRAR/OCULTAR FILA ---
         layoutPrincipal.setLeft(menuIzquierdo);
         layoutPrincipal.setCenter(panelCentral);
         layoutPrincipal.setRight(null); 
@@ -449,7 +454,14 @@ public class AppGUI extends Application {
         escenarioPrincipal.show();
     }
 
-    private void reproducirActual() { if (cancionActual != null) { reproductor.detener(); reproductor.reproducir(cancionActual.getRuta()); } }
+    private void reproducirActual() { 
+        if (cancionActual != null) { 
+            reproductor.detener(); 
+            reproductor.reproducir(cancionActual.getRuta()); 
+            // NUEVO: Asegurarnos de que el volumen actual de la barra se aplique al cambiar de canción
+            reproductor.setVolumen(sliderVolumen.getValue());
+        } 
+    }
     private String formatearTiempo(int seg) { return String.format("%d:%02d", seg / 60, seg % 60); }
     public static void main(String[] args) { launch(args); }
 }

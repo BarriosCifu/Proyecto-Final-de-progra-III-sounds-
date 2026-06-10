@@ -202,11 +202,9 @@ public class AppGUI extends Application {
         Label lblTiempoABB = new Label("⏱ ABB: 0.00 ms");
         lblTiempoABB.setStyle("-fx-text-fill: #ff4d4d; -fx-font-weight: bold; -fx-font-size: 13px;");
         
-        // Espaciador para empujar el botón de configuración a la derecha
         Region espaciadorBusqueda = new Region();
         HBox.setHgrow(espaciadorBusqueda, Priority.ALWAYS);
 
-        // Botón de Configuración (Texto visible)
         Button btnConfiguracion = new Button("⚙ Ajustes");
         btnConfiguracion.setStyle("-fx-background-color: #282828; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 5; -fx-padding: 5 10 5 10;");
         btnConfiguracion.setOnMouseEntered(e -> btnConfiguracion.setStyle("-fx-background-color: #3e3e3e; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 5; -fx-padding: 5 10 5 10;"));
@@ -382,7 +380,6 @@ public class AppGUI extends Application {
         botonesCola.getChildren().addAll(btnQuitarCola, btnSubirCola, btnBajarCola);
         panelDerecho.getChildren().addAll(tituloCola, tablaCola, botonesCola);
 
-        // --- LÓGICA DE LOS BOTONES DE LA COLA ---
         btnQuitarCola.setOnAction(e -> {
             int indice = tablaCola.getSelectionModel().getSelectedIndex();
             if (indice >= 0) {
@@ -484,6 +481,7 @@ public class AppGUI extends Application {
                 if (!arrastrandoSlider) sliderProgreso.setValue(p * 100); 
                 lblTiempoActual.setText(formatearTiempo((int) (t * p)));
                 lblTiempoTotal.setText(formatearTiempo(t));
+                // Cuando termina la canción, presionamos Siguiente automáticamente
                 if (p >= 0.99 && estaReproduciendo) btnSiguiente.fire(); 
             }
         }));
@@ -502,9 +500,11 @@ public class AppGUI extends Application {
 
         btnNuevaPlaylist.setOnAction(e -> { TextInputDialog d = new TextInputDialog(); d.setTitle("Nueva Playlist"); d.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;"); d.showAndWait().ifPresent(n -> { if (!n.trim().isEmpty() && !nombresPlaylists.contains(n)) { nombresPlaylists.add(n); mapaPlaylists.put(n, new ListaSimple()); } }); });
 
+        // Activadores visuales
         btnAleatorio.setOnAction(e -> { modoAleatorio = !modoAleatorio; btnAleatorio.setStyle(estiloBotones + (modoAleatorio ? "-fx-text-fill: #1db954;" : "")); });
         btnRepetir.setOnAction(e -> { modoRepeticion = !modoRepeticion; btnRepetir.setStyle(estiloBotones + (modoRepeticion ? "-fx-text-fill: #1db954;" : "")); });
 
+        // Clic en la tabla
         tablaCanciones.setOnMouseClicked(e -> { if (e.getButton().equals(MouseButton.PRIMARY) && e.getClickCount() == 2) { Cancion s = tablaCanciones.getSelectionModel().getSelectedItem(); if (s != null) { if (cancionActual != null && !cancionActual.equals(s)) historial.push(cancionActual); cancionActual = s; reproducirActual(); btnPlayPausa.setText("⏸"); estaReproduciendo=true; } } });
         
         btnCargarMusica.setOnAction(evento -> {
@@ -560,19 +560,88 @@ public class AppGUI extends Application {
         });
 
         btnPlayPausa.setOnAction(e -> {
-            if (estaReproduciendo) { reproductor.pausar(); btnPlayPausa.setText("▶"); estaReproduciendo = false;
-            } else { if (cancionActual != null && reproductor.getProgreso() > 0) { reproductor.continuar(); btnPlayPausa.setText("⏸"); estaReproduciendo = true;
-                } else { if (!listaObservableCola.isEmpty()) { if (cancionActual != null) historial.push(cancionActual); cancionActual = listaObservableCola.remove(0); reproducirActual(); btnPlayPausa.setText("⏸"); estaReproduciendo=true;
-                    } else { Cancion s = tablaCanciones.getSelectionModel().getSelectedItem(); if (s != null) { if (cancionActual != null) historial.push(cancionActual); cancionActual = s; reproducirActual(); btnPlayPausa.setText("⏸"); estaReproduciendo=true; } } } }
+            if (estaReproduciendo) { 
+                reproductor.pausar(); btnPlayPausa.setText("▶"); estaReproduciendo = false;
+            } else { 
+                if (cancionActual != null && reproductor.getProgreso() > 0) { 
+                    reproductor.continuar(); btnPlayPausa.setText("⏸"); estaReproduciendo = true;
+                } else { 
+                    if (!listaObservableCola.isEmpty()) { 
+                        if (cancionActual != null) historial.push(cancionActual); 
+                        cancionActual = listaObservableCola.remove(0); 
+                        reproducirActual(); btnPlayPausa.setText("⏸"); estaReproduciendo=true;
+                    } else { 
+                        Cancion s = tablaCanciones.getSelectionModel().getSelectedItem(); 
+                        if (s != null) { 
+                            if (cancionActual != null) historial.push(cancionActual); 
+                            cancionActual = s; reproducirActual(); btnPlayPausa.setText("⏸"); estaReproduciendo=true; 
+                        } 
+                    } 
+                } 
+            }
         });
 
+        // ====================================================================
+        // --- LOGICA REPARADA: BOTÓN SIGUIENTE (ALEATORIO Y REPETICIÓN) ---
+        // ====================================================================
         btnSiguiente.setOnAction(e -> {
-            if (modoAleatorio && !tablaCanciones.getItems().isEmpty()) { if (cancionActual != null) historial.push(cancionActual); cancionActual = tablaCanciones.getItems().get((int) (Math.random() * tablaCanciones.getItems().size())); reproducirActual(); btnPlayPausa.setText("⏸");
-            } else if (!listaObservableCola.isEmpty()) { if (cancionActual != null) historial.push(cancionActual); cancionActual = listaObservableCola.remove(0); reproducirActual(); btnPlayPausa.setText("⏸");
-            } else { int i = tablaCanciones.getSelectionModel().getSelectedIndex(); if (i >= 0 && i < tablaCanciones.getItems().size() - 1) { if (cancionActual != null) historial.push(cancionActual); tablaCanciones.getSelectionModel().select(i + 1); cancionActual = tablaCanciones.getSelectionModel().getSelectedItem(); reproducirActual(); btnPlayPausa.setText("⏸"); } }
+            if (cancionActual != null) historial.push(cancionActual);
+
+            // 1. Prioridad: Si hay modo aleatorio, saltamos a cualquier lado
+            if (modoAleatorio && !tablaCanciones.getItems().isEmpty()) { 
+                int randomIndex = (int) (Math.random() * tablaCanciones.getItems().size());
+                tablaCanciones.getSelectionModel().select(randomIndex); // Actualiza visualmente la tabla
+                cancionActual = tablaCanciones.getItems().get(randomIndex);
+                reproducirActual(); 
+                btnPlayPausa.setText("⏸");
+                estaReproduciendo = true;
+            } 
+            // 2. Prioridad: Si hay algo en la fila, lo sacamos
+            else if (!listaObservableCola.isEmpty()) { 
+                cancionActual = listaObservableCola.remove(0); 
+                reproducirActual(); 
+                btnPlayPausa.setText("⏸");
+                estaReproduciendo = true;
+            } 
+            // 3. Normal o Repetición
+            else { 
+                int i = tablaCanciones.getSelectionModel().getSelectedIndex(); 
+                if (i >= 0 && i < tablaCanciones.getItems().size() - 1) { 
+                    tablaCanciones.getSelectionModel().select(i + 1); // Pinta la siguiente fila de gris
+                    cancionActual = tablaCanciones.getSelectionModel().getSelectedItem(); 
+                    reproducirActual(); 
+                    btnPlayPausa.setText("⏸"); 
+                    estaReproduciendo = true;
+                } else if (modoRepeticion && !tablaCanciones.getItems().isEmpty()) {
+                    // ¡AQUÍ ESTÁ LA MAGIA!: Cerramos el ciclo conectando el final con el inicio
+                    tablaCanciones.getSelectionModel().select(0);
+                    cancionActual = tablaCanciones.getSelectionModel().getSelectedItem(); 
+                    reproducirActual(); 
+                    btnPlayPausa.setText("⏸"); 
+                    estaReproduciendo = true;
+                } else {
+                    // Si llegamos al final y no hay repetición, se detiene.
+                    estaReproduciendo = false;
+                    btnPlayPausa.setText("▶");
+                }
+            }
         });
 
-        btnAnterior.setOnAction(e -> { Cancion ant = historial.pop(); if (ant != null) { cancionActual = ant; reproducirActual(); btnPlayPausa.setText("⏸"); } else if (cancionActual != null) reproductor.saltarA(0.0); });
+        // ====================================================================
+        // --- LOGICA REPARADA: BOTÓN ANTERIOR (ACTUALIZA VISTA) ---
+        // ====================================================================
+        btnAnterior.setOnAction(e -> { 
+            Cancion ant = historial.pop(); 
+            if (ant != null) { 
+                cancionActual = ant; 
+                tablaCanciones.getSelectionModel().select(cancionActual); // Sube la franja gris también
+                reproducirActual(); 
+                btnPlayPausa.setText("⏸"); 
+                estaReproduciendo = true;
+            } else if (cancionActual != null) {
+                reproductor.saltarA(0.0); 
+            } 
+        });
 
         layoutPrincipal.setLeft(menuIzquierdo);
         layoutPrincipal.setCenter(panelCentral);
@@ -597,10 +666,9 @@ public class AppGUI extends Application {
         escenarioPrincipal.setTitle("Sounds - Reproductor Musical");
         escenarioPrincipal.setScene(escena);
         
-        // --- NUEVO: Cargar logo de la ventana ---
         try {
             File archivoLogo = new File("default"); 
-            if (!archivoLogo.exists()) archivoLogo = new File("Sounds.png"); 
+            if (!archivoLogo.exists()) archivoLogo = new File("default.png"); 
             if (archivoLogo.exists()) {
                 escenarioPrincipal.getIcons().add(new Image(archivoLogo.toURI().toString()));
             }

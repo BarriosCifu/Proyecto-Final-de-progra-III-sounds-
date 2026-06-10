@@ -112,4 +112,30 @@ public class ArbolAVL {
         if (comparacion < 0) return buscarRecursivo(nodo.getIzquierdo(), nombre);
         return buscarRecursivo(nodo.getDerecho(), nombre);
     }
+    public List<Cancion> buscarPorFiltro(String textoBusqueda) {
+        List<Cancion> resultados = new ArrayList<>();
+        if (textoBusqueda == null || textoBusqueda.trim().isEmpty()) {
+            return obtenerListaInOrden(); // Si no hay texto, devuelve todo
+        }
+        buscarFiltroRecursivo(raiz, textoBusqueda.toLowerCase().trim(), resultados);
+        return resultados;
+    }
+
+    private void buscarFiltroRecursivo(NodoArbol nodo, String filtro, List<Cancion> resultados) {
+        if (nodo != null) {
+            // Recorremos el subárbol izquierdo
+            buscarFiltroRecursivo(nodo.getIzquierdo(), filtro, resultados);
+            
+            // Verificamos si la canción o el artista contienen el texto buscado
+            String nombreCancion = nodo.getCancion().getNombre().toLowerCase();
+            String nombreArtista = nodo.getCancion().getArtista().toLowerCase();
+            
+            if (nombreCancion.contains(filtro) || nombreArtista.contains(filtro)) {
+                resultados.add(nodo.getCancion());
+            }
+            
+            // Recorremos el subárbol derecho
+            buscarFiltroRecursivo(nodo.getDerecho(), filtro, resultados);
+        }
+    }
 }

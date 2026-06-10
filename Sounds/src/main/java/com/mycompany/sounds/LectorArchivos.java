@@ -1,12 +1,14 @@
 package com.mycompany.sounds;
+
+import com.mpatric.mp3agic.ID3v1;
+import com.mpatric.mp3agic.ID3v2;
+import com.mpatric.mp3agic.Mp3File;
 import java.io.File;
-import java.io.RandomAccessFile;
 import java.util.ArrayList;
 import java.util.List;
 
 public class LectorArchivos {
 
-    // Lista temporal para almacenar las canciones antes de pasarlas a tus estructuras
     private List<Cancion> cancionesCargadas;
 
     public LectorArchivos() {
@@ -25,10 +27,8 @@ public class LectorArchivos {
             if (archivos != null) {
                 for (File archivo : archivos) {
                     if (archivo.isDirectory()) {
-                        // Si es carpeta, se llama a sí mismo (recursividad)
                         leerCarpetaRecursivamente(archivo.getAbsolutePath());
                     } else if (archivo.getName().toLowerCase().endsWith(".mp3")) {
-                        // Si es MP3, procesamos la canción
                         Cancion nuevaCancion = extraerMetadatos(archivo);
                         cancionesCargadas.add(nuevaCancion);
                     }
@@ -40,44 +40,64 @@ public class LectorArchivos {
     }
 
     /**
-     * Extrae información básica y lee los últimos 128 bytes (ID3v1) para los metadatos.
+     * Extrae metadatos extendidos e imágenes usando la librería mp3agic.
      */
     private Cancion extraerMetadatos(File archivo) {
         Cancion cancion = new Cancion();
         
-        // Datos a nivel de sistema de archivos
-        cancion.setNombre(archivo.getName().replace(".mp3", "")); // Nombre por defecto
+        // Atributos base por defecto (si el archivo no tiene etiquetas metidas)
+        cancion.setNombre(archivo.getName().replace(".mp3", "")); 
         cancion.setRuta(archivo.getAbsolutePath());
         cancion.setTamano(archivo.length());
-        
-        // Intentar leer metadatos ID3v1 (últimos 128 bytes)
-        try (RandomAccessFile raf = new RandomAccessFile(archivo, "r")) {
-            long longitud = raf.length();
-            if (longitud > 128) {
-                raf.seek(longitud - 128);
-                byte[] etiquetaID3 = new byte[128];
-                raf.read(etiquetaID3);
+        cancion.setArtista("Artista Desconocido");
+        cancion.setAlbum("Álbum Desconocido");
+        cancion.setGenero("Desconocido");
+        cancion.setAnio(0);
 
-                String tag = new String(etiquetaID3, 0, 3);
-                if (tag.equals("TAG")) {
-                    // Si tiene la etiqueta, extraemos los datos limpiando espacios en blanco
-                    String titulo = new String(etiquetaID3, 3, 30).trim();
-                    String artista = new String(etiquetaID3, 33, 30).trim();
-                    String album = new String(etiquetaID3, 63, 30).trim();
-                    String anioStr = new String(etiquetaID3, 93, 4).trim();
+        try {
+            // Inicializamos el lector de mp3agic
+            Mp3File mp3File = new Mp3File(archivo.getAbsolutePath());
+            cancion.setDuracion(mp3File.getLengthInSeconds());
 
-                    if (!titulo.isEmpty()) cancion.setNombre(titulo);
-                    if (!artista.isEmpty()) cancion.setArtista(artista);
-                    if (!album.isEmpty()) cancion.setAlbum(album);
-                    try {
-                        if (!anioStr.isEmpty()) cancion.setAnio(Integer.parseInt(anioStr));
-                    } catch (NumberFormatException e) {
-                        cancion.setAnio(0);
+            // 1. Intentamos extraer de ID3v2 (Metadatos modernos con soporte de imagen)
+            if (mp3File.hasId3v2Tag()) {
+                ID3v2 tagv2 = mp3File.getId3v2Tag();
+                
+                if (tagv2.getTitle() != null && !tagv2.getTitle().trim().isEmpty()) cancion.setNombre(tagv2.getTitle().trim());
+                if (tagv2.getArtist() != null && !tagv2.getArtist().trim().isEmpty()) cancion.setArtista(tagv2.getArtist().trim());
+                if (tagv2.getAlbum() != null && !tagv2.getAlbum().trim().isEmpty()) cancion.setAlbum(tagv2.getAlbum().trim());
+                if (tagv2.getGenreDescription() != null && !tagv2.getGenreDescription().trim().isEmpty()) cancion.setGenero(tagv2.getGenreDescription().trim());
+                
+                try {
+                    if (tagv2.getYear() != null && !tagv2.getYear().trim().isEmpty()) {
+                        cancion.setAnio(Integer.parseInt(tagv2.getYear().trim()));
                     }
+                } catch (NumberFormatException e) {
+                    cancion.setAnio(0);
+                }
+
+                // EXTRAER CARÁTULA: Obtenemos los bytes de la imagen APIC
+                byte[] bytesImagen = tagv2.getAlbumImage();
+                if (bytesImagen != null) {
+                    cancion.setImagenCaratula(bytesImagen);
+                }
+                
+            // 2. Si no tiene ID3v2, intentamos con la etiqueta clásica ID3v1 (Sin imágenes)
+            } else if (mp3File.hasId3v1Tag()) {
+                ID3v1 tagv1 = mp3File.getId3v1Tag();
+                if (tagv1.getTitle() != null && !tagv1.getTitle().trim().isEmpty()) cancion.setNombre(tagv1.getTitle().trim());
+                if (tagv1.getArtist() != null && !tagv1.getArtist().trim().isEmpty()) cancion.setArtista(tagv1.getArtist().trim());
+                if (tagv1.getAlbum() != null && !tagv1.getAlbum().trim().isEmpty()) cancion.setAlbum(tagv1.getAlbum().trim());
+                try {
+                    if (tagv1.getYear() != null && !tagv1.getYear().trim().isEmpty()) {
+                        cancion.setAnio(Integer.parseInt(tagv1.getYear().trim()));
+                    }
+                } catch (NumberFormatException e) {
+                    cancion.setAnio(0);
                 }
             }
         } catch (Exception e) {
-            System.err.println("Error leyendo metadatos de: " + archivo.getName());
+            System.err.println("Error leyendo metadatos de " + archivo.getName() + ": " + e.getMessage());
         }
 
         return cancion;

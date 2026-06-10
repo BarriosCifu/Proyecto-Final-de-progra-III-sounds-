@@ -1,6 +1,5 @@
 package com.mycompany.sounds;
 
-
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -69,12 +68,12 @@ public class AppGUI extends Application {
     
     private Slider sliderVolumen;
 
-    // Componentes globales para mostrar la carátula y la info de reproducción
     private ImageView vistaCaratula;
     private Label lblInfoCancionActual;
 
-    // NUEVO: Instancia global de tu Árbol AVL para la búsqueda rápida
+    // --- VARIABLES GLOBALES DE LOS ÁRBOLES PARA EL BENCHMARKING ---
     private ArbolAVL arbolBibliotecaCentral = new ArbolAVL();
+    private ArbolBinarioBusqueda arbolNormalCentral = new ArbolBinarioBusqueda();
 
     private boolean modoRepeticion = false;
     private ListaCircular listaRepeticion = new ListaCircular(); 
@@ -127,7 +126,6 @@ public class AppGUI extends Application {
         vistaPlaylists.setStyle("-fx-background-color: transparent; -fx-control-inner-background: #000000; -fx-border-color: transparent;");
         VBox.setVgrow(vistaPlaylists, Priority.ALWAYS); 
         
-        // Contenedor visual para la carátula del álbum (Estilo widget de Spotify)
         VBox contenedorCaratula = new VBox(8);
         contenedorCaratula.setAlignment(Pos.CENTER);
         contenedorCaratula.setStyle("-fx-background-color: #121212; -fx-background-radius: 8; -fx-padding: 12px; -fx-border-color: #282828; -fx-border-radius: 8;");
@@ -143,10 +141,8 @@ public class AppGUI extends Application {
         lblInfoCancionActual.setMaxWidth(160);
         
         contenedorCaratula.getChildren().addAll(vistaCaratula, lblInfoCancionActual);
-        
         menuIzquierdo.getChildren().addAll(textoMenu, btnCargarMusica, textoPlaylists, barraPersistencia, btnNuevaPlaylist, vistaPlaylists, contenedorCaratula);
 
-        // --- LÓGICA DE GUARDAR Y CARGAR ---
         btnGuardar.setOnAction(evento -> {
             try (PrintWriter writer = new PrintWriter(new FileWriter("mis_playlists.txt"))) {
                 for (Map.Entry<String, ListaSimple> entry : mapaPlaylists.entrySet()) {
@@ -190,25 +186,47 @@ public class AppGUI extends Application {
         VBox panelCentral = new VBox(10);
         panelCentral.setStyle("-fx-background-color: #121212; -fx-padding: 20px;");
         
-        HBox barraBusqueda = new HBox(10);
+        HBox barraBusqueda = new HBox(15);
         barraBusqueda.setAlignment(Pos.CENTER_LEFT);
         TextField txtBuscar = new TextField();
         txtBuscar.setPromptText("Buscar por título o artista...");
-        txtBuscar.setPrefWidth(300);
+        txtBuscar.setPrefWidth(250);
         txtBuscar.setStyle("-fx-background-color: #282828; -fx-text-fill: white; -fx-prompt-text-fill: gray;");
         Button btnLimpiar = new Button("✖ Limpiar");
         btnLimpiar.setStyle("-fx-background-color: transparent; -fx-text-fill: gray; -fx-cursor: hand;");
-        barraBusqueda.getChildren().addAll(txtBuscar, btnLimpiar);
+        
+        // --- NUEVO: ETIQUETAS DE BENCHMARKING (TIEMPO DE BÚSQUEDA) ---
+        Label lblTiempoAVL = new Label("⏱ AVL: 0.00 ms");
+        lblTiempoAVL.setStyle("-fx-text-fill: #1db954; -fx-font-weight: bold; -fx-font-size: 13px;");
+        Label lblTiempoABB = new Label("⏱ ABB: 0.00 ms");
+        lblTiempoABB.setStyle("-fx-text-fill: #ff4d4d; -fx-font-weight: bold; -fx-font-size: 13px;");
+        
+        barraBusqueda.getChildren().addAll(txtBuscar, btnLimpiar, lblTiempoAVL, lblTiempoABB);
 
-        // --- INTEGRACIÓN: LÓGICA DE BÚSQUEDA EN TIEMPO REAL CON ÁRBOL AVL ---
+        // --- LÓGICA DE BÚSQUEDA Y BENCHMARKING EN TIEMPO REAL ---
         txtBuscar.textProperty().addListener((observable, valorViejo, valorNuevo) -> {
             if (listaOriginalCanciones != null && !listaOriginalCanciones.isEmpty()) {
-                // Si estamos parados en la biblioteca principal, usamos la velocidad del AVL
                 if (tituloCentral.getText().equals("Biblioteca Principal")) {
-                    List<Cancion> filtradas = arbolBibliotecaCentral.buscarPorFiltro(valorNuevo);
-                    tablaCanciones.setItems(FXCollections.observableArrayList(filtradas));
+                    
+                    // 1. Cronometrar Árbol AVL
+                    long inicioAVL = System.nanoTime();
+                    List<Cancion> filtradasAVL = arbolBibliotecaCentral.buscarPorFiltro(valorNuevo);
+                    long finAVL = System.nanoTime();
+                    double msAVL = (finAVL - inicioAVL) / 1_000_000.0;
+                    
+                    // 2. Cronometrar Árbol Binario de Búsqueda Normal
+                    long inicioABB = System.nanoTime();
+                    arbolNormalCentral.buscarPorFiltro(valorNuevo); // Solo medimos tiempo, no usamos el resultado
+                    long finABB = System.nanoTime();
+                    double msABB = (finABB - inicioABB) / 1_000_000.0;
+                    
+                    // 3. Actualizar la Interfaz
+                    lblTiempoAVL.setText(String.format("⏱ AVL: %.4f ms", msAVL));
+                    lblTiempoABB.setText(String.format("⏱ ABB: %.4f ms", msABB));
+                    
+                    tablaCanciones.setItems(FXCollections.observableArrayList(filtradasAVL));
+                    
                 } else {
-                    // Si estamos dentro de una playlist personalizada, hacemos filtro lineal sobre sus elementos
                     List<Cancion> filtradasLista = listaOriginalCanciones.stream()
                         .filter(c -> c.getNombre().toLowerCase().contains(valorNuevo.toLowerCase()) || 
                                      c.getArtista().toLowerCase().contains(valorNuevo.toLowerCase()))
@@ -221,6 +239,8 @@ public class AppGUI extends Application {
         btnLimpiar.setOnAction(e -> {
             txtBuscar.clear();
             txtBuscar.requestFocus();
+            lblTiempoAVL.setText("⏱ AVL: 0.00 ms");
+            lblTiempoABB.setText("⏱ ABB: 0.00 ms");
         });
 
         HBox encabezadoBiblioteca = new HBox(15);
@@ -380,11 +400,8 @@ public class AppGUI extends Application {
         panelInferior.getChildren().addAll(contenedorProgreso, barraBotones);
 
         // --- LÓGICA GENERAL ---
-        
         sliderVolumen.valueProperty().addListener((observable, viejoValor, nuevoValor) -> {
-            if (reproductor != null) {
-                reproductor.setVolumen(nuevoValor.doubleValue());
-            }
+            if (reproductor != null) { reproductor.setVolumen(nuevoValor.doubleValue()); }
         });
 
         sliderProgreso.setOnMousePressed(e -> arrastrandoSlider = true);
@@ -421,35 +438,13 @@ public class AppGUI extends Application {
                 lector.leerCarpetaRecursivamente(carpetaSeleccionada.getAbsolutePath());
                 List<Cancion> cancionesLeidas = lector.getCancionesCargadas();
                 
-                // Inicializamos la variable global del Árbol AVL para las búsquedas
                 arbolBibliotecaCentral = new ArbolAVL();
+                arbolNormalCentral = new ArbolBinarioBusqueda();
+                
                 for (Cancion c : cancionesLeidas) {
                     arbolBibliotecaCentral.insertar(c); 
+                    arbolNormalCentral.insertar(c);
                 }
-                
-                long inicioAVL = System.nanoTime();
-                ArbolAVL arbolTemporal = new ArbolAVL();
-                for (Cancion c : cancionesLeidas) { arbolTemporal.insertar(c); }
-                long finAVL = System.nanoTime();
-                double tiempoAVL = (finAVL - inicioAVL) / 1_000_000.0;
-                
-                long inicioBinario = System.nanoTime();
-                ArbolBinarioBusqueda arbolNormal = new ArbolBinarioBusqueda();
-                for (Cancion c : cancionesLeidas) { arbolNormal.insertar(c); }
-                long finBinario = System.nanoTime();
-                double tiempoBinario = (finBinario - inicioBinario) / 1_000_000.0;
-
-                Alert alerta = new Alert(Alert.AlertType.INFORMATION);
-                alerta.setTitle("Análisis de Rendimiento");
-                alerta.setHeaderText("Comparación de Carga de Árboles");
-                alerta.setContentText(String.format(
-                    "Canciones cargadas: %d\n\n" +
-                    "⏱️ Tiempo Árbol AVL (Balanceado): %.4f ms\n" +
-                    "⏱️ Tiempo Árbol Binario de Búsqueda: %.4f ms\n\n" +
-                    "Nota: El AVL puede tardar fracciones de milisegundo más en cargar por el cálculo de factores de equilibrio y rotaciones, pero garantiza búsquedas O(log n).", 
-                    cancionesLeidas.size(), tiempoAVL, tiempoBinario));
-                alerta.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
-                alerta.showAndWait();
                 
                 listaOriginalCanciones = arbolBibliotecaCentral.obtenerListaInOrden();
                 listaObservableCanciones = FXCollections.observableArrayList(listaOriginalCanciones);
@@ -505,37 +500,26 @@ public class AppGUI extends Application {
     private void actualizarCaratulaYMetadatos() {
         if (cancionActual != null) {
             lblInfoCancionActual.setText(cancionActual.getNombre() + "\n" + cancionActual.getArtista());
-            
             byte[] bytesImagen = cancionActual.getImagenCaratula();
             if (bytesImagen != null && bytesImagen.length > 0) {
                 try {
                     ByteArrayInputStream bais = new ByteArrayInputStream(bytesImagen);
                     Image img = new Image(bais);
                     vistaCaratula.setImage(img);
-                } catch (Exception e) {
-                    cargarImagenPorDefecto(); 
-                }
-            } else {
-                cargarImagenPorDefecto();
-            }
+                } catch (Exception e) { cargarImagenPorDefecto(); }
+            } else { cargarImagenPorDefecto(); }
         }
     }
 
     private void cargarImagenPorDefecto() {
         try {
-            File archivoLogo = new File("default"); // Sin extensión .png debido a la configuración de Windows
-            if (!archivoLogo.exists()) {
-                archivoLogo = new File("default.png"); // Respaldo por si acaso
-            }
+            File archivoLogo = new File("default"); 
+            if (!archivoLogo.exists()) archivoLogo = new File("default.png"); 
             if (archivoLogo.exists()) {
                 Image imgDefault = new Image(archivoLogo.toURI().toString());
                 vistaCaratula.setImage(imgDefault);
-            } else {
-                vistaCaratula.setImage(null); 
-            }
-        } catch (Exception ex) {
-            vistaCaratula.setImage(null);
-        }
+            } else { vistaCaratula.setImage(null); }
+        } catch (Exception ex) { vistaCaratula.setImage(null); }
     }
 
     private void reproducirActual() { 

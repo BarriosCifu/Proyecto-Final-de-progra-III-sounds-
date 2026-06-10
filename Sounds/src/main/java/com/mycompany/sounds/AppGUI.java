@@ -145,7 +145,6 @@ public class AppGUI extends Application {
         contenedorCaratula.getChildren().addAll(vistaCaratula, lblInfoCancionActual);
         menuIzquierdo.getChildren().addAll(textoMenu, btnCargarMusica, textoPlaylists, barraPersistencia, btnNuevaPlaylist, vistaPlaylists, contenedorCaratula);
 
-        // --- LÓGICA DE GUARDAR (CON ÁRBOLES Y ALERTA LIMPIA) ---
         btnGuardar.setOnAction(evento -> {
             try {
                 List<Cancion> todasLasCanciones = new ArrayList<>();
@@ -188,7 +187,6 @@ public class AppGUI extends Application {
             } catch (Exception e) { System.out.println("Error al guardar: " + e.getMessage()); }
         });
 
-        // --- LÓGICA DE CARGAR (CON ÁRBOLES Y ALERTA LIMPIA) ---
         btnCargar.setOnAction(evento -> {
             File archivo = new File("mis_playlists.txt");
             if (!archivo.exists()) return;
@@ -537,7 +535,15 @@ public class AppGUI extends Application {
                 if (!arrastrandoSlider) sliderProgreso.setValue(p * 100); 
                 lblTiempoActual.setText(formatearTiempo((int) (t * p)));
                 lblTiempoTotal.setText(formatearTiempo(t));
-                if (p >= 0.99 && estaReproduciendo) btnSiguiente.fire(); 
+                
+                // NUEVO: Verificamos si la canción terminó y si debe hacer loop de 1 canción
+                if (p >= 0.99 && estaReproduciendo) {
+                    if (modoRepeticion && tituloCentral.getText().equals("Biblioteca Principal") && listaObservableCola.isEmpty()) {
+                        reproducirActual(); // Loop 1 canción
+                    } else {
+                        btnSiguiente.fire(); // Comportamiento normal o Playlist
+                    }
+                }
             }
         }));
         temporizador.setCycleCount(Timeline.INDEFINITE); temporizador.play();
@@ -667,7 +673,8 @@ public class AppGUI extends Application {
                     reproducirActual(); 
                     btnPlayPausa.setText("⏸"); 
                     estaReproduciendo = true;
-                } else if (modoRepeticion && !tablaCanciones.getItems().isEmpty()) {
+                } else if (modoRepeticion && !tituloCentral.getText().equals("Biblioteca Principal") && !tablaCanciones.getItems().isEmpty()) {
+                    // LOOP ALL: Válido únicamente para las playlists
                     tablaCanciones.getSelectionModel().select(0);
                     cancionActual = tablaCanciones.getSelectionModel().getSelectedItem(); 
                     reproducirActual(); 
@@ -718,7 +725,7 @@ public class AppGUI extends Application {
         
         try {
             File archivoLogo = new File("default"); 
-            if (!archivoLogo.exists()) archivoLogo = new File("default.png"); 
+            if (!archivoLogo.exists()) archivoLogo = new File("Sounds.png"); 
             if (archivoLogo.exists()) {
                 escenarioPrincipal.getIcons().add(new Image(archivoLogo.toURI().toString()));
             }
@@ -746,7 +753,7 @@ public class AppGUI extends Application {
     private void cargarImagenPorDefecto() {
         try {
             File archivoLogo = new File("default"); 
-            if (!archivoLogo.exists()) archivoLogo = new File("Sounds.png"); 
+            if (!archivoLogo.exists()) archivoLogo = new File("default.png"); 
             if (archivoLogo.exists()) {
                 Image imgDefault = new Image(archivoLogo.toURI().toString());
                 vistaCaratula.setImage(imgDefault);

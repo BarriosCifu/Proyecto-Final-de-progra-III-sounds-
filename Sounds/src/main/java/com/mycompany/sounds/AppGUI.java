@@ -21,6 +21,7 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
+import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
 import javafx.scene.control.ChoiceDialog;
 import javafx.scene.control.ContextMenu;
@@ -304,15 +305,14 @@ public class AppGUI extends Application {
         Button btnSiguiente = new Button("⏭");
         
         // --- BOTÓN DE FILA (ÍCONO) ---
-        Button btnVerFila = new Button(""); // Ícono de lista de FontAwesome
+        Button btnVerFila = new Button(""); 
         
         String estiloBotones = "-fx-background-color: transparent; -fx-text-fill: white; -fx-font-size: 18px; -fx-cursor: hand;";
         btnAleatorio.setStyle(estiloBotones); btnRepetir.setStyle(estiloBotones);
         btnAnterior.setStyle(estiloBotones); btnSiguiente.setStyle(estiloBotones);
-        btnVerFila.setStyle(estiloBotones + "-fx-font-size: 16px;"); // Un poco más pequeño
+        btnVerFila.setStyle(estiloBotones + "-fx-font-size: 16px;"); 
         btnPlayPausa.setStyle(estiloBotones + "-fx-font-size: 24px; -fx-min-width: 60px;"); 
         
-        // Agregamos el botón de fila al final de la barra derecha
         barraBotones.getChildren().addAll(btnAleatorio, btnRepetir, btnAnterior, btnPlayPausa, btnSiguiente, btnVerFila);
         panelInferior.getChildren().addAll(contenedorProgreso, barraBotones);
 
@@ -341,7 +341,72 @@ public class AppGUI extends Application {
 
         tablaCanciones.setOnMouseClicked(e -> { if (e.getButton().equals(MouseButton.PRIMARY) && e.getClickCount() == 2) { Cancion s = tablaCanciones.getSelectionModel().getSelectedItem(); if (s != null) { if (cancionActual != null && !cancionActual.equals(s)) historial.push(cancionActual); cancionActual = s; reproducirActual(); btnPlayPausa.setText("⏸"); estaReproduciendo=true; } } });
         
-        btnCargarMusica.setOnAction(e -> { DirectoryChooser d = new DirectoryChooser(); File c = d.showDialog(escenarioPrincipal); if (c != null) { LectorArchivos l = new LectorArchivos(); l.leerCarpetaRecursivamente(c.getAbsolutePath()); listaOriginalCanciones = l.getCancionesCargadas(); tablaCanciones.setItems(FXCollections.observableArrayList(listaOriginalCanciones)); vistaPlaylists.getSelectionModel().clearSelection(); playlistSeleccionada = null; tituloCentral.setText("Biblioteca Principal"); } });
+        // =====================================================================
+        // --- AQUÍ ESTÁ LA INTEGRACIÓN CON ÁRBOLES Y EL BENCHMARKING ---
+        // =====================================================================
+        btnCargarMusica.setOnAction(evento -> {
+            DirectoryChooser selectorDirectorio = new DirectoryChooser();
+            selectorDirectorio.setTitle("Selecciona la carpeta con tu música");
+            File carpetaSeleccionada = selectorDirectorio.showDialog(escenarioPrincipal);
+            
+            if (carpetaSeleccionada != null) {
+                // 1. Lectura de MP3s
+                LectorArchivos lector = new LectorArchivos();
+                lector.leerCarpetaRecursivamente(carpetaSeleccionada.getAbsolutePath());
+                List<Cancion> cancionesLeidas = lector.getCancionesCargadas();
+                
+                // 2. BENCHMARKING: ÁRBOL AVL vs ÁRBOL BINARIO DE BÚSQUEDA
+                
+                // Medir tiempo del Árbol AVL (Con balanceo)
+                long inicioAVL = System.nanoTime();
+                ArbolAVL arbolBiblioteca = new ArbolAVL();
+                for (Cancion c : cancionesLeidas) {
+                    arbolBiblioteca.insertar(c); 
+                }
+                long finAVL = System.nanoTime();
+                double tiempoAVL = (finAVL - inicioAVL) / 1_000_000.0;
+                
+                // Medir tiempo de tu Árbol Binario de Búsqueda (Sin balanceo)
+                long inicioBinario = System.nanoTime();
+                ArbolBinarioBusqueda arbolNormal = new ArbolBinarioBusqueda();
+                for (Cancion c : cancionesLeidas) {
+                    arbolNormal.insertar(c); 
+                }
+                long finBinario = System.nanoTime();
+                double tiempoBinario = (finBinario - inicioBinario) / 1_000_000.0;
+
+                // Mostrar mensaje en pantalla
+                Alert alerta = new Alert(Alert.AlertType.INFORMATION);
+                alerta.setTitle("Análisis de Rendimiento");
+                alerta.setHeaderText("Comparación de Carga de Árboles");
+                alerta.setContentText(String.format(
+                    "Canciones cargadas: %d\n\n" +
+                    "⏱️ Tiempo Árbol AVL (Balanceado): %.4f ms\n" +
+                    "⏱️ Tiempo Árbol Binario de Búsqueda: %.4f ms\n\n" +
+                    "Nota: El AVL puede tardar fracciones de milisegundo más en cargar por el cálculo de factores de equilibrio y rotaciones, pero garantiza búsquedas O(log n).", 
+                    cancionesLeidas.size(), tiempoAVL, tiempoBinario));
+                alerta.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
+                alerta.showAndWait();
+                
+                // 3. Extracción de lista en InOrden (Alfabéticamente desde el AVL)
+                listaOriginalCanciones = arbolBiblioteca.obtenerListaInOrden();
+                
+                // 4. Pasar a la interfaz gráfica
+                listaObservableCanciones = FXCollections.observableArrayList(listaOriginalCanciones);
+                tablaCanciones.setItems(listaObservableCanciones);
+                
+                // Reseteos visuales
+                modoRepeticion = false;
+                modoAleatorio = false;
+                btnRepetir.setStyle(estiloBotones);
+                btnAleatorio.setStyle(estiloBotones);
+                
+                vistaPlaylists.getSelectionModel().clearSelection();
+                playlistSeleccionada = null;
+                tituloCentral.setText("Biblioteca Principal");
+                tablaCanciones.refresh();
+            }
+        });
 
         btnPlayPausa.setOnAction(e -> {
             if (estaReproduciendo) { reproductor.pausar(); btnPlayPausa.setText("▶"); estaReproduciendo = false;
@@ -361,16 +426,16 @@ public class AppGUI extends Application {
         // --- LÓGICA DE MOSTRAR/OCULTAR FILA ---
         layoutPrincipal.setLeft(menuIzquierdo);
         layoutPrincipal.setCenter(panelCentral);
-        layoutPrincipal.setRight(null); // OCULTO POR DEFECTO
+        layoutPrincipal.setRight(null); 
         layoutPrincipal.setBottom(panelInferior); 
 
         btnVerFila.setOnAction(evento -> {
             if (layoutPrincipal.getRight() == null) {
                 layoutPrincipal.setRight(panelDerecho);
-                btnVerFila.setStyle(estiloBotones + "-fx-text-fill: #30D5C8; -fx-font-size: 16px;"); // Turquesa cuando está abierto
+                btnVerFila.setStyle(estiloBotones + "-fx-text-fill: #30D5C8; -fx-font-size: 16px;"); 
             } else {
                 layoutPrincipal.setRight(null);
-                btnVerFila.setStyle(estiloBotones + "-fx-text-fill: white; -fx-font-size: 16px;"); // Blanco cuando está cerrado
+                btnVerFila.setStyle(estiloBotones + "-fx-text-fill: white; -fx-font-size: 16px;"); 
             }
         });
 

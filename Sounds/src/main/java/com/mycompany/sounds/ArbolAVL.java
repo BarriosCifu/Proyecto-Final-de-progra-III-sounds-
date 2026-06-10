@@ -1,45 +1,74 @@
 package com.mycompany.sounds;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /**
  *
  * @author barri
  */
 public class ArbolAVL {
-  private NodoArbol raiz;
-  public ArbolAVL() {
-     this.raiz = null;
+    private NodoArbol raiz;
+
+    public ArbolAVL() {
+        this.raiz = null;
     }
-  private int obtenerAltura(NodoArbol nodo) {
-     if (nodo == null) return 0;
-      return nodo.getAltura();
+
+    public List<Cancion> obtenerListaInOrden() {
+        List<Cancion> listaExtraida = new ArrayList<>();
+        recorridoInOrden(this.raiz, listaExtraida);
+        return listaExtraida;
     }
-  private int obtenerFactorEquilibrio(NodoArbol nodo) {
-      if (nodo == null) return 0;
-       return obtenerAltura(nodo.getIzquierdo()) - obtenerAltura(nodo.getDerecho());
+
+    /**
+     * Proceso recursivo que recorre el árbol (Izquierdo - Raíz - Derecho).
+     */
+    private void recorridoInOrden(NodoArbol actual, List<Cancion> listaExtraida) {
+        if (actual != null) {
+            recorridoInOrden(actual.getIzquierdo(), listaExtraida);
+            listaExtraida.add(actual.getCancion()); // Agrega la canción al llegar a la raíz del subárbol
+            recorridoInOrden(actual.getDerecho(), listaExtraida);
+        }
     }
+
+    // --- MÉTODOS ORIGINALES DE TU ÁRBOL AVL ---
+
+    private int obtenerAltura(NodoArbol nodo) {
+        if (nodo == null) return 0;
+        return nodo.getAltura();
+    }
+
+    private int obtenerFactorEquilibrio(NodoArbol nodo) {
+        if (nodo == null) return 0;
+        return obtenerAltura(nodo.getIzquierdo()) - obtenerAltura(nodo.getDerecho());
+    }
+
     private NodoArbol rotacionDerecha(NodoArbol y) {
-          NodoArbol x = y.getIzquierdo();
-       NodoArbol T2 = x.getDerecho();
-         x.setDerecho(y);
-       y.setIzquierdo(T2);
-         y.setAltura(Math.max(obtenerAltura(y.getIzquierdo()), obtenerAltura(y.getDerecho())) + 1);
-       x.setAltura(Math.max(obtenerAltura(x.getIzquierdo()), obtenerAltura(x.getDerecho())) + 1);
+        NodoArbol x = y.getIzquierdo();
+        NodoArbol T2 = x.getDerecho();
+        x.setDerecho(y);
+        y.setIzquierdo(T2);
+        y.setAltura(Math.max(obtenerAltura(y.getIzquierdo()), obtenerAltura(y.getDerecho())) + 1);
+        x.setAltura(Math.max(obtenerAltura(x.getIzquierdo()), obtenerAltura(x.getDerecho())) + 1);
         return x;
     }
+
     private NodoArbol rotacionIzquierda(NodoArbol x) {
         NodoArbol y = x.getDerecho();
         NodoArbol T2 = y.getIzquierdo();
-             y.setIzquierdo(x);
-      x.setDerecho(T2);
-      x.setAltura(Math.max(obtenerAltura(x.getIzquierdo()), obtenerAltura(x.getDerecho())) + 1);
-     y.setAltura(Math.max(obtenerAltura(y.getIzquierdo()), obtenerAltura(y.getDerecho())) + 1);
+        y.setIzquierdo(x);
+        x.setDerecho(T2);
+        x.setAltura(Math.max(obtenerAltura(x.getIzquierdo()), obtenerAltura(x.getDerecho())) + 1);
+        y.setAltura(Math.max(obtenerAltura(y.getIzquierdo()), obtenerAltura(y.getDerecho())) + 1);
         return y;
     }
+
     public void insertar(Cancion cancion) {
         raiz = insertarRecursivo(raiz, cancion);
     }
+
     private NodoArbol insertarRecursivo(NodoArbol nodo, Cancion cancion) {
-              if (nodo == null) {
+        if (nodo == null) {
             return new NodoArbol(cancion);
         }
         int comparacion = cancion.getNombre().compareToIgnoreCase(nodo.getCancion().getNombre());
@@ -55,7 +84,7 @@ public class ArbolAVL {
        
         int balance = obtenerFactorEquilibrio(nodo);
 
-            if (balance > 1 && cancion.getNombre().compareToIgnoreCase(nodo.getIzquierdo().getCancion().getNombre()) < 0) {
+        if (balance > 1 && cancion.getNombre().compareToIgnoreCase(nodo.getIzquierdo().getCancion().getNombre()) < 0) {
             return rotacionDerecha(nodo);
         }
         if (balance < -1 && cancion.getNombre().compareToIgnoreCase(nodo.getDerecho().getCancion().getNombre()) > 0) {
@@ -71,9 +100,11 @@ public class ArbolAVL {
         }
         return nodo;
     }   
+
     public Cancion buscar(String nombre) {
         return buscarRecursivo(raiz, nombre);
     }
+
     private Cancion buscarRecursivo(NodoArbol nodo, String nombre) {
         if (nodo == null) return null; 
         int comparacion = nombre.compareToIgnoreCase(nodo.getCancion().getNombre());

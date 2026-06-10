@@ -596,6 +596,18 @@ public class AppGUI extends Application {
         escenarioPrincipal.setOnCloseRequest(e -> { reproductor.detener(); System.exit(0); });
         escenarioPrincipal.setTitle("Sounds - Reproductor Musical");
         escenarioPrincipal.setScene(escena);
+        
+        // --- NUEVO: Cargar logo de la ventana ---
+        try {
+            File archivoLogo = new File("default"); 
+            if (!archivoLogo.exists()) archivoLogo = new File("Sounds.png"); 
+            if (archivoLogo.exists()) {
+                escenarioPrincipal.getIcons().add(new Image(archivoLogo.toURI().toString()));
+            }
+        } catch (Exception ex) {
+            System.out.println("Logo no encontrado para la barra de tareas.");
+        }
+
         escenarioPrincipal.show();
     }
 

@@ -71,10 +71,8 @@ public class AppGUI extends Application {
     private ImageView vistaCaratula;
     private Label lblInfoCancionActual;
     
-    // NUEVO: Etiqueta para el contador dinámico de canciones
     private Label lblContadorCanciones;
 
-    // Variables globales de los Árboles
     private ArbolAVL arbolBibliotecaCentral = new ArbolAVL();
     private ArbolBinarioBusqueda arbolNormalCentral = new ArbolBinarioBusqueda();
 
@@ -205,9 +203,8 @@ public class AppGUI extends Application {
         
         barraBusqueda.getChildren().addAll(txtBuscar, btnLimpiar, lblTiempoAVL, lblTiempoABB);
 
-        // --- ENCABEZADO Y CONTADOR DE CANCIONES ---
         HBox encabezadoBiblioteca = new HBox(15);
-        encabezadoBiblioteca.setAlignment(Pos.BASELINE_LEFT); // Alinea el texto en la base
+        encabezadoBiblioteca.setAlignment(Pos.BASELINE_LEFT); 
         
         tituloCentral = new Label("Biblioteca Principal");
         tituloCentral.setStyle("-fx-text-fill: white; -fx-font-size: 24px; -fx-font-weight: bold;");
@@ -217,7 +214,6 @@ public class AppGUI extends Application {
         
         encabezadoBiblioteca.getChildren().addAll(tituloCentral, lblContadorCanciones);
         
-        // --- LÓGICA DE BÚSQUEDA Y BENCHMARKING ---
         txtBuscar.textProperty().addListener((observable, valorViejo, valorNuevo) -> {
             if (listaOriginalCanciones != null && !listaOriginalCanciones.isEmpty()) {
                 if (tituloCentral.getText().equals("Biblioteca Principal")) {
@@ -366,6 +362,32 @@ public class AppGUI extends Application {
         botonesCola.getChildren().addAll(btnQuitarCola, btnSubirCola, btnBajarCola);
         panelDerecho.getChildren().addAll(tituloCola, tablaCola, botonesCola);
 
+        // --- LÓGICA DE LOS BOTONES DE LA COLA ---
+        btnQuitarCola.setOnAction(e -> {
+            int indice = tablaCola.getSelectionModel().getSelectedIndex();
+            if (indice >= 0) {
+                listaObservableCola.remove(indice);
+            }
+        });
+
+        btnSubirCola.setOnAction(e -> {
+            int indice = tablaCola.getSelectionModel().getSelectedIndex();
+            if (indice > 0) { 
+                Cancion seleccionada = listaObservableCola.remove(indice);
+                listaObservableCola.add(indice - 1, seleccionada);
+                tablaCola.getSelectionModel().select(indice - 1); 
+            }
+        });
+
+        btnBajarCola.setOnAction(e -> {
+            int indice = tablaCola.getSelectionModel().getSelectedIndex();
+            if (indice >= 0 && indice < listaObservableCola.size() - 1) { 
+                Cancion seleccionada = listaObservableCola.remove(indice);
+                listaObservableCola.add(indice + 1, seleccionada);
+                tablaCola.getSelectionModel().select(indice + 1); 
+            }
+        });
+
         // --- 4. PANEL INFERIOR CONTROLES ---
         VBox panelInferior = new VBox(10);
         panelInferior.setPrefHeight(100);
@@ -410,8 +432,6 @@ public class AppGUI extends Application {
         panelInferior.getChildren().addAll(contenedorProgreso, barraBotones);
 
         // --- LÓGICA GENERAL Y EVENTOS ---
-        
-        // Clic en listas de reproducción para mostrarlas
         vistaPlaylists.getSelectionModel().selectedItemProperty().addListener((obs, viejoValor, nuevoValor) -> {
             if (nuevoValor != null) {
                 playlistSeleccionada = nuevoValor;
@@ -480,16 +500,39 @@ public class AppGUI extends Application {
                 arbolBibliotecaCentral = new ArbolAVL();
                 arbolNormalCentral = new ArbolBinarioBusqueda();
                 
+                // 1. Cronometrar inserción en Árbol AVL
+                long inicioAVL = System.nanoTime();
                 for (Cancion c : cancionesLeidas) {
                     arbolBibliotecaCentral.insertar(c); 
+                }
+                long finAVL = System.nanoTime();
+                double msAVL = (finAVL - inicioAVL) / 1_000_000.0;
+                
+                // 2. Cronometrar inserción en Árbol Binario Normal (ABB)
+                long inicioABB = System.nanoTime();
+                for (Cancion c : cancionesLeidas) {
                     arbolNormalCentral.insertar(c);
                 }
+                long finABB = System.nanoTime();
+                double msABB = (finABB - inicioABB) / 1_000_000.0;
+                
+                // --- ALERTA DE BENCHMARKING DE CARGA ---
+                Alert alerta = new Alert(Alert.AlertType.INFORMATION);
+                alerta.setTitle("Análisis de Rendimiento");
+                alerta.setHeaderText("Comparación de Carga de Árboles");
+                alerta.setContentText(String.format(
+                    "Canciones cargadas: %d\n\n" +
+                    "⏱️ Tiempo de inserción Árbol AVL: %.4f ms\n" +
+                    "⏱️ Tiempo de inserción Árbol Binario: %.4f ms\n\n" +
+                    "Nota: El AVL puede tardar fracciones de milisegundo más en insertar debido al balanceo (rotaciones), pero compensa este tiempo con creces al realizar búsquedas O(log n).", 
+                    cancionesLeidas.size(), msAVL, msABB));
+                alerta.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
+                alerta.showAndWait();
                 
                 listaOriginalCanciones = arbolBibliotecaCentral.obtenerListaInOrden();
                 listaObservableCanciones = FXCollections.observableArrayList(listaOriginalCanciones);
                 tablaCanciones.setItems(listaObservableCanciones);
                 
-                // Actualiza el contador general al cargar la música
                 lblContadorCanciones.setText(listaOriginalCanciones.size() + " canciones");
                 
                 modoRepeticion = false; modoAleatorio = false;

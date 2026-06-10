@@ -1,6 +1,7 @@
 package com.mycompany.sounds;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileReader;
 import java.io.FileWriter;
@@ -36,6 +37,8 @@ import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
@@ -63,8 +66,11 @@ public class AppGUI extends Application {
     private Label lblTiempoTotal;
     private boolean arrastrandoSlider = false;
     
-    // NUEVO: Variable para el control de volumen
     private Slider sliderVolumen;
+
+    // NUEVO: Componentes globales para mostrar la carátula y la info de reproducción
+    private ImageView vistaCaratula;
+    private Label lblInfoCancionActual;
 
     private boolean modoRepeticion = false;
     private ListaCircular listaRepeticion = new ListaCircular(); 
@@ -117,7 +123,25 @@ public class AppGUI extends Application {
         vistaPlaylists.setStyle("-fx-background-color: transparent; -fx-control-inner-background: #000000; -fx-border-color: transparent;");
         VBox.setVgrow(vistaPlaylists, Priority.ALWAYS); 
         
-        menuIzquierdo.getChildren().addAll(textoMenu, btnCargarMusica, textoPlaylists, barraPersistencia, btnNuevaPlaylist, vistaPlaylists);
+        // NUEVO: Contenedor visual para la carátula del álbum (Estilo widget de Spotify)
+        VBox contenedorCaratula = new VBox(8);
+        contenedorCaratula.setAlignment(Pos.CENTER);
+        contenedorCaratula.setStyle("-fx-background-color: #121212; -fx-background-radius: 8; -fx-padding: 12px; -fx-border-color: #282828; -fx-border-radius: 8;");
+        
+        vistaCaratula = new ImageView();
+        vistaCaratula.setFitWidth(140);
+        vistaCaratula.setFitHeight(140);
+        vistaCaratula.setPreserveRatio(true);
+        
+        lblInfoCancionActual = new Label("Sin reproducir");
+        lblInfoCancionActual.setStyle("-fx-text-fill: #b3b3b3; -fx-font-weight: bold; -fx-font-size: 11px; -fx-alignment: center;");
+        lblInfoCancionActual.setWrapText(true);
+        lblInfoCancionActual.setMaxWidth(160);
+        
+        contenedorCaratula.getChildren().addAll(vistaCaratula, lblInfoCancionActual);
+        
+        // Añadimos el contenedor de carátulas al final del menú izquierdo
+        menuIzquierdo.getChildren().addAll(textoMenu, btnCargarMusica, textoPlaylists, barraPersistencia, btnNuevaPlaylist, vistaPlaylists, contenedorCaratula);
 
         // --- LÓGICA DE GUARDAR Y CARGAR ---
         btnGuardar.setOnAction(evento -> {
@@ -314,18 +338,16 @@ public class AppGUI extends Application {
         btnVerFila.setStyle(estiloBotones + "-fx-font-size: 16px;"); 
         btnPlayPausa.setStyle(estiloBotones + "-fx-font-size: 24px; -fx-min-width: 60px;"); 
         
-        // --- NUEVO: CONTENEDOR DEL SLIDER DE VOLUMEN ---
         Label lblVolumen = new Label("🔊");
         lblVolumen.setStyle("-fx-text-fill: #b3b3b3; -fx-font-size: 16px;");
         
-        // Inicializa el slider de 0.0 a 1.0, y arranca a la mitad (0.5)
         sliderVolumen = new Slider(0.0, 1.0, 0.5); 
         sliderVolumen.setPrefWidth(80);
         sliderVolumen.setStyle("-fx-base: #181818; -fx-accent: #1db954; -fx-cursor: hand;");
         
         HBox contenedorVolumen = new HBox(8);
         contenedorVolumen.setAlignment(Pos.CENTER);
-        contenedorVolumen.setStyle("-fx-padding: 0 0 0 20px;"); // Un poco de espacio a la izquierda
+        contenedorVolumen.setStyle("-fx-padding: 0 0 0 20px;"); 
         contenedorVolumen.getChildren().addAll(lblVolumen, sliderVolumen);
         
         barraBotones.getChildren().addAll(btnAleatorio, btnRepetir, btnAnterior, btnPlayPausa, btnSiguiente, btnVerFila, contenedorVolumen);
@@ -333,10 +355,8 @@ public class AppGUI extends Application {
 
         // --- LÓGICA GENERAL ---
         
-        // NUEVO: Lógica del cambio de volumen
         sliderVolumen.valueProperty().addListener((observable, viejoValor, nuevoValor) -> {
             if (reproductor != null) {
-                // Mandamos el valor al reproductor (entre 0.0 y 1.0)
                 reproductor.setVolumen(nuevoValor.doubleValue());
             }
         });
@@ -444,7 +464,7 @@ public class AppGUI extends Application {
             }
         });
 
-        Scene escena = new Scene(layoutPrincipal, 1150, 700); 
+        Scene escena = new Scene(layoutPrincipal, 1150, 750); // Aumentado ligeramente de alto para la carátula
         escena.getRoot().setStyle("-fx-base: #121212; -fx-control-inner-background: #121212; -fx-table-cell-border-color: transparent; -fx-table-header-background-color: #282828;");
         escena.getStylesheets().add("data:text/css,.list-cell { -fx-text-fill: #b3b3b3; -fx-font-weight: bold; } .list-cell:selected { -fx-text-fill: white; -fx-background-color: #282828; } .context-menu { -fx-background-color: #282828; } .menu-item:focused { -fx-background-color: #3e3e3e; }");
 
@@ -454,12 +474,35 @@ public class AppGUI extends Application {
         escenarioPrincipal.show();
     }
 
+    // --- NUEVO MÉTODO: ACTUALIZA LA CARÁTULA Y LA INFO EN LA INTERFAZ ---
+    private void actualizarCaratulaYMetadatos() {
+        if (cancionActual != null) {
+            // Setea el texto inferior
+            lblInfoCancionActual.setText(cancionActual.getNombre() + "\n" + cancionActual.getArtista());
+            
+            // Decodifica el byte[] a una Imagen de JavaFX
+            byte[] bytesImagen = cancionActual.getImagenCaratula();
+            if (bytesImagen != null && bytesImagen.length > 0) {
+                try {
+                    ByteArrayInputStream bais = new ByteArrayInputStream(bytesImagen);
+                    Image img = new Image(bais);
+                    vistaCaratula.setImage(img);
+                } catch (Exception e) {
+                    vistaCaratula.setImage(null); // Si el byte array está corrupto, limpia
+                }
+            } else {
+                // Si el archivo MP3 no tiene carátula interna, limpia el contenedor
+                vistaCaratula.setImage(null);
+            }
+        }
+    }
+
     private void reproducirActual() { 
         if (cancionActual != null) { 
             reproductor.detener(); 
             reproductor.reproducir(cancionActual.getRuta()); 
-            // NUEVO: Asegurarnos de que el volumen actual de la barra se aplique al cambiar de canción
             reproductor.setVolumen(sliderVolumen.getValue());
+            actualizarCaratulaYMetadatos(); // Llama a la actualización visual
         } 
     }
     private String formatearTiempo(int seg) { return String.format("%d:%02d", seg / 60, seg % 60); }

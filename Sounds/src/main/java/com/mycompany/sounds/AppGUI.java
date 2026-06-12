@@ -85,7 +85,10 @@ public class AppGUI extends Application {
 
     private boolean modoRepeticion = false;
     private ListaCircular listaRepeticion = new ListaCircular(); 
+    
+    // --- PILA Y LISTA ESPEJO PARA HISTORIAL ---
     private Pila historial = new Pila(); 
+    private ObservableList<Cancion> listaObservableHistorial = FXCollections.observableArrayList();
 
     private ObservableList<String> nombresPlaylists = FXCollections.observableArrayList();
     private ListView<String> vistaPlaylists;
@@ -120,6 +123,10 @@ public class AppGUI extends Application {
         Button btnCargarMusica = new Button("Cargar Carpeta MP3");
         btnCargarMusica.setStyle("-fx-background-color: #1db954; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 20; -fx-cursor: hand;");
         btnCargarMusica.setPrefWidth(180);
+
+        // NUEVO: Botón de Historial
+        Button btnHistorial = new Button("🕒 Historial de Reproducción");
+        btnHistorial.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-alignment: center-left; -fx-padding: 0;");
         
         Label textoPlaylists = new Label("MIS PLAYLISTS");
         textoPlaylists.setStyle("-fx-text-fill: #b3b3b3; -fx-font-weight: bold; -fx-font-size: 12px; -fx-padding: 10px 0 0 0;");
@@ -156,30 +163,22 @@ public class AppGUI extends Application {
         lblInfoCancionActual.setMaxWidth(160);
         
         contenedorCaratula.getChildren().addAll(vistaCaratula, lblInfoCancionActual);
-        menuIzquierdo.getChildren().addAll(textoMenu, btnCargarMusica, textoPlaylists, barraPersistencia, btnNuevaPlaylist, vistaPlaylists, contenedorCaratula);
+        menuIzquierdo.getChildren().addAll(textoMenu, btnCargarMusica, btnHistorial, textoPlaylists, barraPersistencia, btnNuevaPlaylist, vistaPlaylists, contenedorCaratula);
 
+        // --- LÓGICA DE EVENTOS DEL MENÚ IZQUIERDO ---
+        btnHistorial.setOnAction(e -> {
+            vistaPlaylists.getSelectionModel().clearSelection();
+            playlistSeleccionada = null;
+            tituloCentral.setText("Historial de Reproducción");
+            tablaCanciones.setItems(listaObservableHistorial);
+            tablaCanciones.refresh();
+            lblContadorCanciones.setText(listaObservableHistorial.size() + " canciones escuchadas");
+        });
+
+        // --- GUARDAR (PLAYLISTS E HISTORIAL) ---
         btnGuardar.setOnAction(evento -> {
             try {
-                List<Cancion> todasLasCanciones = new ArrayList<>();
-                for (ArbolBinarioBusqueda arbol : mapaPlaylists.values()) {
-                    todasLasCanciones.addAll(arbol.obtenerListaInOrden());
-                }
-                
-                ArbolAVL avlPrueba = new ArbolAVL();
-                ArbolBinarioBusqueda abbPrueba = new ArbolBinarioBusqueda();
-                for (Cancion c : todasLasCanciones) {
-                    avlPrueba.insertar(c);
-                    abbPrueba.insertar(c);
-                }
-
-                long inicioAVL = System.nanoTime();
-                avlPrueba.obtenerListaInOrden();
-                long finAVL = System.nanoTime();
-
-                long inicioABB = System.nanoTime();
-                abbPrueba.obtenerListaInOrden();
-                long finABB = System.nanoTime();
-
+                // 1. Guardar Playlists
                 try (PrintWriter writer = new PrintWriter(new FileWriter("mis_playlists.txt"))) {
                     for (Map.Entry<String, ArbolBinarioBusqueda> entry : mapaPlaylists.entrySet()) {
                         String nombreLista = entry.getKey();
@@ -191,78 +190,93 @@ public class AppGUI extends Application {
                     }
                 }
 
+                // 2. Guardar Historial (Pila)
+                try (PrintWriter writerHistorial = new PrintWriter(new FileWriter("historial_cifrado.txt"))) {
+                    for (Cancion c : listaObservableHistorial) {
+                        String genero = c.getGenero() != null ? c.getGenero() : "Desconocido";
+                        String datosPlanos = "HISTORIAL||" + c.getNombre() + "||" + c.getArtista() + "||" + c.getAlbum() + "||" + genero + "||" + c.getRuta();
+                        writerHistorial.println(GestorEncriptacion.cifrar(datosPlanos));
+                    }
+                }
+
                 Alert alerta = new Alert(Alert.AlertType.INFORMATION);
-                alerta.setTitle("");
+                alerta.setTitle("Guardado Exitoso");
                 alerta.setHeaderText(null);
-                alerta.setContentText(String.format("AVL: %.4f ms\nABB: %.4f ms", (finAVL - inicioAVL) / 1_000_000.0, (finABB - inicioABB) / 1_000_000.0));
+                alerta.setContentText("Las Playlists y el Historial han sido cifrados y guardados.");
                 alerta.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
                 alerta.showAndWait();
 
             } catch (Exception e) { System.out.println("Error al guardar: " + e.getMessage()); }
         });
 
+        // --- CARGAR (PLAYLISTS E HISTORIAL) ---
         btnCargar.setOnAction(evento -> {
-            File archivo = new File("mis_playlists.txt");
-            if (!archivo.exists()) return;
-            try (BufferedReader reader = new BufferedReader(new FileReader(archivo))) {
-                String lineaCifrada;
-                List<Cancion> cancionesCargadas = new ArrayList<>();
-                List<String> nombresCargados = new ArrayList<>();
-                
-                while ((lineaCifrada = reader.readLine()) != null) {
-                    String datosPlanos = GestorEncriptacion.descifrar(lineaCifrada);
-                    String[] partes = datosPlanos.split("\\|\\|");
+            // 1. Cargar Playlists
+            File archivoPl = new File("mis_playlists.txt");
+            if (archivoPl.exists()) {
+                try (BufferedReader reader = new BufferedReader(new FileReader(archivoPl))) {
+                    String lineaCifrada;
+                    mapaPlaylists.clear(); nombresPlaylists.clear(); cancionesFavoritas.clear();
+                    nombresPlaylists.add("Mis me gusta"); mapaPlaylists.put("Mis me gusta", new ArbolBinarioBusqueda());
                     
-                    if (partes.length >= 5) {
-                        Cancion c = new Cancion();
-                        c.setNombre(partes[1]); 
-                        c.setArtista(partes[2]); 
-                        c.setAlbum(partes[3]);
-                        
-                        if (partes.length == 6) {
+                    while ((lineaCifrada = reader.readLine()) != null) {
+                        String datosPlanos = GestorEncriptacion.descifrar(lineaCifrada);
+                        String[] partes = datosPlanos.split("\\|\\|");
+                        if (partes.length >= 5) {
+                            Cancion c = new Cancion();
+                            c.setNombre(partes[1]); 
+                            c.setArtista(partes[2]); 
+                            c.setAlbum(partes[3]);
+                            if (partes.length == 6) { c.setGenero(partes[4]); c.setRuta(partes[5]); } 
+                            else { c.setGenero("Desconocido"); c.setRuta(partes[4]); }
+                            
+                            String nombreLista = partes[0];
+                            if (!mapaPlaylists.containsKey(nombreLista)) { 
+                                nombresPlaylists.add(nombreLista); 
+                                mapaPlaylists.put(nombreLista, new ArbolBinarioBusqueda());
+                            }
+                            mapaPlaylists.get(nombreLista).insertar(c);
+                            if (nombreLista.equals("Mis me gusta")) cancionesFavoritas.add(c.getRuta());
+                        }
+                    }
+                } catch (Exception e) { System.out.println("Error al cargar playlists: " + e.getMessage()); }
+            }
+
+            // 2. Cargar Historial
+            File archivoHistorial = new File("historial_cifrado.txt");
+            if (archivoHistorial.exists()) {
+                try (BufferedReader readerHist = new BufferedReader(new FileReader(archivoHistorial))) {
+                    String lineaCifrada;
+                    listaObservableHistorial.clear();
+                    List<Cancion> tempReversa = new ArrayList<>();
+                    
+                    while ((lineaCifrada = readerHist.readLine()) != null) {
+                        String datosPlanos = GestorEncriptacion.descifrar(lineaCifrada);
+                        String[] partes = datosPlanos.split("\\|\\|");
+                        if (partes.length >= 6) {
+                            Cancion c = new Cancion();
+                            c.setNombre(partes[1]);
+                            c.setArtista(partes[2]);
+                            c.setAlbum(partes[3]);
                             c.setGenero(partes[4]);
                             c.setRuta(partes[5]);
-                        } else {
-                            c.setGenero("Desconocido");
-                            c.setRuta(partes[4]);
+                            listaObservableHistorial.add(c);
+                            tempReversa.add(c);
                         }
-                        
-                        cancionesCargadas.add(c);
-                        nombresCargados.add(partes[0]);
                     }
-                }
-
-                ArbolAVL avlPrueba = new ArbolAVL();
-                long inicioAVL = System.nanoTime();
-                for (Cancion c : cancionesCargadas) avlPrueba.insertar(c);
-                long finAVL = System.nanoTime();
-
-                mapaPlaylists.clear(); nombresPlaylists.clear(); cancionesFavoritas.clear();
-                nombresPlaylists.add("Mis me gusta"); mapaPlaylists.put("Mis me gusta", new ArbolBinarioBusqueda());
-
-                long inicioABB = System.nanoTime();
-                for (int i = 0; i < cancionesCargadas.size(); i++) {
-                    String nombreLista = nombresCargados.get(i);
-                    Cancion c = cancionesCargadas.get(i);
-                    if (!mapaPlaylists.containsKey(nombreLista)) { 
-                        nombresPlaylists.add(nombreLista); 
-                        mapaPlaylists.put(nombreLista, new ArbolBinarioBusqueda());
+                    // Reconstruir la pila original matemáticamente
+                    historial = new Pila(); 
+                    for (int i = tempReversa.size() - 1; i >= 0; i--) {
+                        historial.push(tempReversa.get(i));
                     }
-                    mapaPlaylists.get(nombreLista).insertar(c);
-                    if (nombreLista.equals("Mis me gusta")) cancionesFavoritas.add(c.getRuta());
-                }
-                long finABB = System.nanoTime();
+                } catch (Exception e) { System.out.println("Error al cargar historial: " + e.getMessage()); }
+            }
 
-                tablaCanciones.refresh();
-
-                Alert alerta = new Alert(Alert.AlertType.INFORMATION);
-                alerta.setTitle("");
-                alerta.setHeaderText(null);
-                alerta.setContentText(String.format("AVL: %.4f ms\nABB: %.4f ms", (finAVL - inicioAVL) / 1_000_000.0, (finABB - inicioABB) / 1_000_000.0));
-                alerta.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
-                alerta.showAndWait();
-
-            } catch (Exception e) { System.out.println("Error al cargar: " + e.getMessage()); }
+            if (tituloCentral.getText().equals("Historial de Reproducción")) {
+                tablaCanciones.setItems(listaObservableHistorial);
+                lblContadorCanciones.setText(listaObservableHistorial.size() + " canciones escuchadas");
+            }
+            tablaCanciones.refresh();
         });
 
         // --- 2. PANEL CENTRAL ---
@@ -309,7 +323,6 @@ public class AppGUI extends Application {
         txtBuscar.textProperty().addListener((observable, valorViejo, valorNuevo) -> {
             if (listaOriginalCanciones != null && !listaOriginalCanciones.isEmpty()) {
                 if (tituloCentral.getText().equals("Biblioteca Principal")) {
-                    
                     long inicioAVL = System.nanoTime();
                     List<Cancion> filtradasAVL = arbolBibliotecaCentral.buscarPorFiltro(valorNuevo);
                     long finAVL = System.nanoTime();
@@ -331,7 +344,7 @@ public class AppGUI extends Application {
                     tablaCanciones.setItems(FXCollections.observableArrayList(filtradasAVL));
                     lblContadorCanciones.setText(filtradasAVL.size() + " resultados");
                     
-                } else {
+                } else if (!tituloCentral.getText().equals("Historial de Reproducción")) {
                     List<Cancion> filtradasLista = listaOriginalCanciones.stream()
                         .filter(c -> c.getNombre().toLowerCase().contains(valorNuevo.toLowerCase()) || 
                                      c.getArtista().toLowerCase().contains(valorNuevo.toLowerCase()))
@@ -406,7 +419,6 @@ public class AppGUI extends Application {
         tablaCanciones.getColumns().addAll(colFavorita, colNombre, colArtista, colAlbum, colGenero);
         VBox.setVgrow(tablaCanciones, Priority.ALWAYS);
         
-        // --- MENÚ CONTEXTUAL ---
         ContextMenu menuContextual = new ContextMenu();
         menuContextual.setStyle("-fx-base: #282828; -fx-control-inner-background: #282828; -fx-text-fill: white;");
         MenuItem itemAñadirCola = new MenuItem("➕ Agregar a la fila de reproducción");
@@ -447,7 +459,6 @@ public class AppGUI extends Application {
             }
         });
 
-        // --- LÓGICA DE EDICIÓN (RECONSTRUCCIÓN DE ÁRBOLES) ---
         itemEditar.setOnAction(evento -> {
             Cancion seleccionada = tablaCanciones.getSelectionModel().getSelectedItem();
             if (seleccionada != null) {
@@ -492,12 +503,10 @@ public class AppGUI extends Application {
                         String viejoNombre = seleccionada.getNombre();
                         String nuevoNombre = fieldNombre.getText().trim();
                         
-                        // Actualizamos los datos en memoria
                         seleccionada.setArtista(fieldArtista.getText().trim());
                         seleccionada.setAlbum(fieldAlbum.getText().trim());
                         seleccionada.setGenero(fieldGenero.getText().trim());
 
-                        // Si el nombre cambió, reconstruimos los árboles para asegurar el orden
                         if (!viejoNombre.equals(nuevoNombre)) {
                             seleccionada.setNombre(nuevoNombre);
                             
@@ -697,7 +706,20 @@ public class AppGUI extends Application {
         btnAleatorio.setOnAction(e -> { modoAleatorio = !modoAleatorio; btnAleatorio.setStyle(estiloBotones + (modoAleatorio ? "-fx-text-fill: #1db954;" : "")); });
         btnRepetir.setOnAction(e -> { modoRepeticion = !modoRepeticion; btnRepetir.setStyle(estiloBotones + (modoRepeticion ? "-fx-text-fill: #1db954;" : "")); });
 
-        tablaCanciones.setOnMouseClicked(e -> { if (e.getButton().equals(MouseButton.PRIMARY) && e.getClickCount() == 2) { Cancion s = tablaCanciones.getSelectionModel().getSelectedItem(); if (s != null) { if (cancionActual != null && !cancionActual.equals(s)) historial.push(cancionActual); cancionActual = s; reproducirActual(); btnPlayPausa.setText("⏸"); estaReproduciendo=true; } } });
+        tablaCanciones.setOnMouseClicked(e -> { 
+            if (e.getButton().equals(MouseButton.PRIMARY) && e.getClickCount() == 2) { 
+                Cancion s = tablaCanciones.getSelectionModel().getSelectedItem(); 
+                if (s != null) { 
+                    if (cancionActual != null && !cancionActual.equals(s)) {
+                        agregarAlHistorial(cancionActual);
+                    }
+                    cancionActual = s; 
+                    reproducirActual(); 
+                    btnPlayPausa.setText("⏸"); 
+                    estaReproduciendo=true; 
+                } 
+            } 
+        });
         
         btnCargarMusica.setOnAction(evento -> {
             DirectoryChooser selectorDirectorio = new DirectoryChooser();
@@ -726,18 +748,6 @@ public class AppGUI extends Application {
                 long finABB = System.nanoTime();
                 double msABB = (finABB - inicioABB) / 1_000_000.0;
                 
-                Alert alerta = new Alert(Alert.AlertType.INFORMATION);
-                alerta.setTitle("Análisis de Rendimiento");
-                alerta.setHeaderText("Comparación de Carga de Árboles");
-                alerta.setContentText(String.format(
-                    "Canciones cargadas: %d\n\n" +
-                    "⏱️ Tiempo de inserción Árbol AVL: %.4f ms\n" +
-                    "⏱️ Tiempo de inserción Árbol Binario: %.4f ms\n\n" +
-                    "Nota: El AVL puede tardar fracciones de milisegundo más en insertar debido al balanceo (rotaciones), pero compensa este tiempo con creces al realizar búsquedas O(log n).", 
-                    cancionesLeidas.size(), msAVL, msABB));
-                alerta.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
-                alerta.showAndWait();
-                
                 listaOriginalCanciones = arbolBibliotecaCentral.obtenerListaInOrden();
                 listaObservableCanciones = FXCollections.observableArrayList(listaOriginalCanciones);
                 tablaCanciones.setItems(listaObservableCanciones);
@@ -759,13 +769,13 @@ public class AppGUI extends Application {
                     reproductor.continuar(); btnPlayPausa.setText("⏸"); estaReproduciendo = true;
                 } else { 
                     if (!listaObservableCola.isEmpty()) { 
-                        if (cancionActual != null) historial.push(cancionActual); 
+                        if (cancionActual != null) agregarAlHistorial(cancionActual);
                         cancionActual = listaObservableCola.remove(0); 
                         reproducirActual(); btnPlayPausa.setText("⏸"); estaReproduciendo=true;
                     } else { 
                         Cancion s = tablaCanciones.getSelectionModel().getSelectedItem(); 
                         if (s != null) { 
-                            if (cancionActual != null) historial.push(cancionActual); 
+                            if (cancionActual != null) agregarAlHistorial(cancionActual);
                             cancionActual = s; reproducirActual(); btnPlayPausa.setText("⏸"); estaReproduciendo=true; 
                         } 
                     } 
@@ -774,7 +784,7 @@ public class AppGUI extends Application {
         });
 
         btnSiguiente.setOnAction(e -> {
-            if (cancionActual != null) historial.push(cancionActual);
+            if (cancionActual != null) agregarAlHistorial(cancionActual);
 
             if (modoAleatorio && !tablaCanciones.getItems().isEmpty()) { 
                 int randomIndex = (int) (Math.random() * tablaCanciones.getItems().size());
@@ -810,7 +820,7 @@ public class AppGUI extends Application {
         });
 
         btnAnterior.setOnAction(e -> { 
-            Cancion ant = historial.pop(); 
+            Cancion ant = sacarDelHistorial(); 
             if (ant != null) { 
                 cancionActual = ant; 
                 tablaCanciones.getSelectionModel().select(cancionActual); 
@@ -851,11 +861,23 @@ public class AppGUI extends Application {
             if (archivoLogo.exists()) {
                 escenarioPrincipal.getIcons().add(new Image(archivoLogo.toURI().toString()));
             }
-        } catch (Exception ex) {
-            System.out.println("Logo no encontrado para la barra de tareas.");
-        }
+        } catch (Exception ex) {}
 
         escenarioPrincipal.show();
+    }
+
+    // --- MÉTODOS DE SINCRONIZACIÓN DE HISTORIAL ---
+    private void agregarAlHistorial(Cancion c) {
+        historial.push(c);
+        listaObservableHistorial.add(0, c); // Lo añadimos al inicio visualmente
+    }
+
+    private Cancion sacarDelHistorial() {
+        Cancion c = historial.pop();
+        if (c != null && !listaObservableHistorial.isEmpty()) {
+            listaObservableHistorial.remove(0); // Lo removemos visualmente
+        }
+        return c;
     }
 
     private void abrirPanelConfiguraciones() {
@@ -901,18 +923,16 @@ public class AppGUI extends Application {
                 for (String linea : lineas) {
                     writer.println(GestorEncriptacion.cifrar(linea));
                 }
-                Alert a = new Alert(Alert.AlertType.INFORMATION, "El reporte estadístico ha sido encriptado y guardado exitosamente en 'estadisticas_cifradas.txt'.");
+                Alert a = new Alert(Alert.AlertType.INFORMATION, "El reporte estadístico ha sido encriptado y guardado exitosamente.");
                 a.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
                 a.show();
-            } catch (Exception ex) {
-                System.out.println("Error al guardar stats: " + ex.getMessage());
-            }
+            } catch (Exception ex) {}
         });
 
         btnCargarStats.setOnAction(e -> {
             File file = new File("estadisticas_cifradas.txt");
             if (!file.exists()) {
-                Alert a = new Alert(Alert.AlertType.WARNING, "No se encontró ningún archivo 'estadisticas_cifradas.txt' en el sistema.");
+                Alert a = new Alert(Alert.AlertType.WARNING, "No se encontró archivo de estadísticas.");
                 a.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
                 a.show();
                 return;
@@ -924,12 +944,10 @@ public class AppGUI extends Application {
                     sb.append(GestorEncriptacion.descifrar(lineaCifrada)).append("\n");
                 }
                 txtReporte.setText(sb.toString());
-                Alert a = new Alert(Alert.AlertType.INFORMATION, "El reporte estadístico ha sido desencriptado y cargado en pantalla.");
+                Alert a = new Alert(Alert.AlertType.INFORMATION, "Reporte desencriptado en pantalla.");
                 a.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
                 a.show();
-            } catch (Exception ex) {
-                System.out.println("Error al cargar stats: " + ex.getMessage());
-            }
+            } catch (Exception ex) {}
         });
 
         botones.getChildren().addAll(btnActualizar, btnGuardarStats, btnCargarStats);
@@ -937,15 +955,6 @@ public class AppGUI extends Application {
 
         Scene escena = new Scene(layout, 550, 480);
         ventanaConfig.setScene(escena);
-        
-        try {
-            File archivoLogo = new File("default"); 
-            if (!archivoLogo.exists()) archivoLogo = new File("default.png"); 
-            if (archivoLogo.exists()) {
-                ventanaConfig.getIcons().add(new Image(archivoLogo.toURI().toString()));
-            }
-        } catch (Exception ex) {}
-
         ventanaConfig.show();
     }
 
@@ -970,14 +979,19 @@ public class AppGUI extends Application {
 
         long tamanoTotalBytes = 0;
         Map<String, List<Cancion>> cancionesPorNombre = new HashMap<>();
+        Set<String> rutasOrigen = new HashSet<>();
         
         for (Cancion c : listaOriginalCanciones) {
             File f = new File(c.getRuta());
-            if (f.exists()) {
-                tamanoTotalBytes += f.length();
-            }
+            if (f.exists()) tamanoTotalBytes += f.length();
+            if (f.getParent() != null) rutasOrigen.add(f.getParent());
+            else rutasOrigen.add(c.getRuta());
+            
             cancionesPorNombre.computeIfAbsent(c.getNombre().toLowerCase(), k -> new ArrayList<>()).add(c);
         }
+        
+        StringBuilder rutasStr = new StringBuilder();
+        for (String r : rutasOrigen) rutasStr.append("   - ").append(r).append("\n");
         
         double tamanoMB = tamanoTotalBytes / (1024.0 * 1024.0);
         double minutosTotalesAprox = tamanoMB; 
@@ -1018,7 +1032,10 @@ public class AppGUI extends Application {
                 "💾 ANÁLISIS DE ALMACENAMIENTO\n" +
                 "──────────────────────────────────────────\n" +
                 "📦 Tamaño total de la biblioteca: " + String.format("%.2f MB", tamanoMB) + "\n" +
-                "⚠️ Total de archivos duplicados: " + duplicadosCount + "\n";
+                "⚠️ Total de archivos duplicados: " + duplicadosCount + "\n\n" +
+                "📂 RUTAS DE ORIGEN DE LOS ARCHIVOS\n" + 
+                "──────────────────────────────────────────\n" +
+                rutasStr.toString() + "\n";
         
         if (duplicadosCount > 0) {
             reporte += "Lista de repeticiones encontradas en memoria:\n" + duplicadosNombres.toString();

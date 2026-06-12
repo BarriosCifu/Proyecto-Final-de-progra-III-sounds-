@@ -206,6 +206,10 @@ public class AppGUI extends Application {
                     String lineaCifrada;
                     mapaPlaylists.clear(); nombresPlaylists.clear(); cancionesFavoritas.clear();
                     nombresPlaylists.add("Mis me gusta"); mapaPlaylists.put("Mis me gusta", new ArbolBinarioBusqueda());
+                    
+                    List<Cancion> cancionesCargadas = new ArrayList<>();
+                    List<String> nombresCargados = new ArrayList<>();
+
                     while ((lineaCifrada = reader.readLine()) != null) {
                         String datosPlanos = GestorEncriptacion.descifrar(lineaCifrada);
                         String[] partes = datosPlanos.split("\\|\\|");
@@ -217,15 +221,38 @@ public class AppGUI extends Application {
                             if (partes.length == 6) { c.setGenero(partes[4]); c.setRuta(partes[5]); } 
                             else { c.setGenero("Desconocido"); c.setRuta(partes[4]); }
                             
-                            String nombreLista = partes[0];
-                            if (!mapaPlaylists.containsKey(nombreLista)) { 
-                                nombresPlaylists.add(nombreLista); 
-                                mapaPlaylists.put(nombreLista, new ArbolBinarioBusqueda());
-                            }
-                            mapaPlaylists.get(nombreLista).insertar(c);
-                            if (nombreLista.equals("Mis me gusta")) cancionesFavoritas.add(c.getRuta());
+                            cancionesCargadas.add(c);
+                            nombresCargados.add(partes[0]);
                         }
                     }
+
+                    long inicioAVL = System.nanoTime();
+                    ArbolAVL avlPrueba = new ArbolAVL();
+                    for (Cancion c : cancionesCargadas) avlPrueba.insertar(c);
+                    long finAVL = System.nanoTime();
+                    double msAVL = (finAVL - inicioAVL) / 1_000_000.0;
+
+                    long inicioABB = System.nanoTime();
+                    for (int i = 0; i < cancionesCargadas.size(); i++) {
+                        String nombreLista = nombresCargados.get(i);
+                        Cancion c = cancionesCargadas.get(i);
+                        if (!mapaPlaylists.containsKey(nombreLista)) { 
+                            nombresPlaylists.add(nombreLista); 
+                            mapaPlaylists.put(nombreLista, new ArbolBinarioBusqueda());
+                        }
+                        mapaPlaylists.get(nombreLista).insertar(c);
+                        if (nombreLista.equals("Mis me gusta")) cancionesFavoritas.add(c.getRuta());
+                    }
+                    long finABB = System.nanoTime();
+                    double msABB = (finABB - inicioABB) / 1_000_000.0;
+
+                    Alert alerta = new Alert(Alert.AlertType.INFORMATION);
+                    alerta.setTitle("Análisis de Rendimiento");
+                    alerta.setHeaderText("Carga de Playlists");
+                    alerta.setContentText(String.format("Carga finalizada.\n\n⏱️ AVL: %.4f ms\n⏱️ ABB: %.4f ms", msAVL, msABB));
+                    alerta.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
+                    alerta.showAndWait();
+
                 } catch (Exception e) {}
             }
             File archivoHistorial = new File("historial_cifrado.txt");
@@ -254,7 +281,7 @@ public class AppGUI extends Application {
                     }
                 } catch (Exception e) {}
             }
-            if (tituloCentral.getText().equals("Historial de Reproduccion")) {
+            if (tituloCentral.getText().equals("Historial de Reproducción")) {
                 tablaCanciones.setItems(listaObservableHistorial);
                 lblContadorCanciones.setText(listaObservableHistorial.size() + " canciones escuchadas");
             }
@@ -325,7 +352,7 @@ public class AppGUI extends Application {
                     tablaCanciones.setItems(FXCollections.observableArrayList(filtradasAVL));
                     lblContadorCanciones.setText(filtradasAVL.size() + " resultados");
                     
-                } else if (!tituloCentral.getText().equals("Historial de Reproduccion")) {
+                } else if (!tituloCentral.getText().equals("Historial de Reproducción")) {
                     List<Cancion> filtradasLista = listaOriginalCanciones.stream()
                         .filter(c -> c.getNombre().toLowerCase().contains(valorNuevo.toLowerCase()) || 
                                      c.getArtista().toLowerCase().contains(valorNuevo.toLowerCase()))
@@ -396,8 +423,30 @@ public class AppGUI extends Application {
 
         TableColumn<Cancion, String> colGenero = new TableColumn<>("Género");
         colGenero.setCellValueFactory(new PropertyValueFactory<>("genero"));
+
+        // --- NUEVAS COLUMNAS: TAMAÑO Y DURACIÓN ESTIMADA ---
+        TableColumn<Cancion, String> colTamano = new TableColumn<>("Tamaño");
+        colTamano.setCellValueFactory(cellData -> {
+            File f = new File(cellData.getValue().getRuta());
+            if (f.exists()) {
+                return new javafx.beans.property.SimpleStringProperty(String.format("%.2f MB", f.length() / (1024.0 * 1024.0)));
+            }
+            return new javafx.beans.property.SimpleStringProperty("0.00 MB");
+        });
+
+        TableColumn<Cancion, String> colDuracion = new TableColumn<>("Duración");
+        colDuracion.setCellValueFactory(cellData -> {
+            File f = new File(cellData.getValue().getRuta());
+            if (f.exists()) {
+                double mb = f.length() / (1024.0 * 1024.0);
+                int min = (int) mb;
+                int seg = (int) ((mb - min) * 60);
+                return new javafx.beans.property.SimpleStringProperty(String.format("%d:%02d", min, seg));
+            }
+            return new javafx.beans.property.SimpleStringProperty("0:00");
+        });
         
-        tablaCanciones.getColumns().addAll(colFavorita, colNombre, colArtista, colAlbum, colGenero);
+        tablaCanciones.getColumns().addAll(colFavorita, colNombre, colArtista, colAlbum, colGenero, colDuracion, colTamano);
         VBox.setVgrow(tablaCanciones, Priority.ALWAYS);
         
         ContextMenu menuContextual = new ContextMenu();
@@ -723,6 +772,17 @@ public class AppGUI extends Application {
                 }
                 long finABB = System.nanoTime();
                 double msABB = (finABB - inicioABB) / 1_000_000.0;
+                
+                Alert alerta = new Alert(Alert.AlertType.INFORMATION);
+                alerta.setTitle("Análisis de Rendimiento");
+                alerta.setHeaderText("Comparación de Carga de Árboles");
+                alerta.setContentText(String.format(
+                    "Canciones cargadas: %d\n\n" +
+                    "⏱️ Tiempo de inserción Árbol AVL: %.4f ms\n" +
+                    "⏱️ Tiempo de inserción Árbol Binario: %.4f ms", 
+                    cancionesLeidas.size(), msAVL, msABB));
+                alerta.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
+                alerta.showAndWait();
                 
                 listaOriginalCanciones = arbolBibliotecaCentral.obtenerListaInOrden();
                 listaObservableCanciones = FXCollections.observableArrayList(listaOriginalCanciones);

@@ -1,12 +1,10 @@
 package com.mycompany.sounds;
 
+import java.io.FileWriter;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- *
- * @author barri
- */
 public class ArbolBinarioBusqueda {
     private NodoArbol raiz;
 
@@ -29,69 +27,6 @@ public class ArbolBinarioBusqueda {
             nodoActual.setDerecho(insertarRecursivo(nodoActual.getDerecho(), cancion));
         }
         return nodoActual;
-    }
-
-    // InOrden: Izquierda -> Raíz -> Derecha 
-    public void mostrarInOrden() {
-        System.out.println("--- Recorrido InOrden ---");
-        inOrdenRecursivo(raiz);
-        System.out.println("-------------------------");
-    }
-
-    private void inOrdenRecursivo(NodoArbol nodo) {
-        if (nodo != null) {
-            inOrdenRecursivo(nodo.getIzquierdo());
-            System.out.println(nodo.getCancion().getNombre());
-            inOrdenRecursivo(nodo.getDerecho());
-        }
-    }
-
-    // PreOrden: Raíz -> Izquierda -> Derecha
-    public void mostrarPreOrden() {
-        System.out.println("--- Recorrido PreOrden ---");
-        preOrdenRecursivo(raiz);
-        System.out.println("--------------------------");
-    }
-
-    private void preOrdenRecursivo(NodoArbol nodo) {
-        if (nodo != null) {
-            System.out.println(nodo.getCancion().getNombre());
-            preOrdenRecursivo(nodo.getIzquierdo());
-            preOrdenRecursivo(nodo.getDerecho());
-        }
-    }
-
-    // PostOrden: Izquierda -> Derecha -> Raíz
-    public void mostrarPostOrden() {
-        System.out.println("--- Recorrido PostOrden ---");
-        postOrdenRecursivo(raiz);
-        System.out.println("---------------------------");
-    }
-
-    private void postOrdenRecursivo(NodoArbol nodo) {
-        if (nodo != null) {
-            postOrdenRecursivo(nodo.getIzquierdo());
-            postOrdenRecursivo(nodo.getDerecho());
-            System.out.println(nodo.getCancion().getNombre());
-        }
-    }
-
-    public Cancion buscar(String nombre) {
-        return buscarRecursivo(raiz, nombre);
-    }
-
-    private Cancion buscarRecursivo(NodoArbol nodo, String nombre) {
-        if (nodo == null) {
-            return null; 
-        }
-        int comparacion = nombre.compareToIgnoreCase(nodo.getCancion().getNombre());
-        if (comparacion == 0) {
-            return nodo.getCancion(); // ¡La encontramos!
-        } else if (comparacion < 0) {
-            return buscarRecursivo(nodo.getIzquierdo(), nombre);
-        } else {
-            return buscarRecursivo(nodo.getDerecho(), nombre);
-        }
     }
 
     public void eliminar(String nombre) {
@@ -128,32 +63,27 @@ public class ArbolBinarioBusqueda {
         return actual;
     }
 
-    public boolean modificar(String nombreActual, Cancion nuevosDatos) {
-        Cancion cancionExistente = buscar(nombreActual);
-        
-        if (cancionExistente != null) {
-            if (!nombreActual.equalsIgnoreCase(nuevosDatos.getNombre())) {
-                eliminar(nombreActual);
-                insertar(nuevosDatos);
-            } else {
-                cancionExistente.setArtista(nuevosDatos.getArtista());
-                cancionExistente.setAlbum(nuevosDatos.getAlbum());
-                cancionExistente.setGenero(nuevosDatos.getGenero());
-                cancionExistente.setAnio(nuevosDatos.getAnio());
-            }
-            return true;
+    public Cancion buscar(String nombre) {
+        return buscarRecursivo(raiz, nombre);
+    }
+
+    private Cancion buscarRecursivo(NodoArbol nodo, String nombre) {
+        if (nodo == null) {
+            return null; 
         }
-        System.out.println("No se encontró la canción para modificar.");
-        return false;
+        int comparacion = nombre.compareToIgnoreCase(nodo.getCancion().getNombre());
+        if (comparacion == 0) {
+            return nodo.getCancion(); 
+        } else if (comparacion < 0) {
+            return buscarRecursivo(nodo.getIzquierdo(), nombre);
+        } else {
+            return buscarRecursivo(nodo.getDerecho(), nombre);
+        }
     }
 
     public NodoArbol getRaiz(){
         return raiz;
     }
-
-    // =========================================================
-    // --- NUEVO: MÉTODOS REQUERIDOS PARA EL BENCHMARKING ---
-    // =========================================================
 
     public List<Cancion> obtenerListaInOrden() {
         List<Cancion> listaExtraida = new ArrayList<>();
@@ -181,15 +111,88 @@ public class ArbolBinarioBusqueda {
     private void buscarFiltroRecursivo(NodoArbol nodo, String filtro, List<Cancion> resultados) {
         if (nodo != null) {
             buscarFiltroRecursivo(nodo.getIzquierdo(), filtro, resultados);
-            
             String nombreCancion = nodo.getCancion().getNombre().toLowerCase();
             String nombreArtista = nodo.getCancion().getArtista().toLowerCase();
-            
             if (nombreCancion.contains(filtro) || nombreArtista.contains(filtro)) {
                 resultados.add(nodo.getCancion());
             }
-            
             buscarFiltroRecursivo(nodo.getDerecho(), filtro, resultados);
+        }
+    }
+
+    // =========================================================================
+    // --- NUEVO: RECORRIDOS (INORDEN, PREORDEN, POSTORDEN) PARA LA RÚBRICA ---
+    // =========================================================================
+    public String obtenerRecorridosCompletos() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("PRE-ORDEN (Raíz, Izq, Der):\n");
+        generarPreOrden(raiz, sb);
+        sb.append("\n\nIN-ORDEN (Izq, Raíz, Der):\n");
+        generarInOrden(raiz, sb);
+        sb.append("\n\nPOST-ORDEN (Izq, Der, Raíz):\n");
+        generarPostOrden(raiz, sb);
+        return sb.toString();
+    }
+
+    private void generarPreOrden(NodoArbol nodo, StringBuilder sb) {
+        if (nodo != null) {
+            sb.append(nodo.getCancion().getNombre()).append(" | ");
+            generarPreOrden(nodo.getIzquierdo(), sb);
+            generarPreOrden(nodo.getDerecho(), sb);
+        }
+    }
+
+    private void generarInOrden(NodoArbol nodo, StringBuilder sb) {
+        if (nodo != null) {
+            generarInOrden(nodo.getIzquierdo(), sb);
+            sb.append(nodo.getCancion().getNombre()).append(" | ");
+            generarInOrden(nodo.getDerecho(), sb);
+        }
+    }
+
+    private void generarPostOrden(NodoArbol nodo, StringBuilder sb) {
+        if (nodo != null) {
+            generarPostOrden(nodo.getIzquierdo(), sb);
+            generarPostOrden(nodo.getDerecho(), sb);
+            sb.append(nodo.getCancion().getNombre()).append(" | ");
+        }
+    }
+
+    // =========================================================================
+    // --- NUEVO: GENERADOR DE GRAPHVIZ (5 PUNTOS DE RÚBRICA) ---
+    // =========================================================================
+    public void generarGraphviz(String rutaArchivo) {
+        StringBuilder dot = new StringBuilder();
+        dot.append("digraph ArbolABB {\n");
+        dot.append("    node [shape=record, style=filled, fillcolor=\"#ff4d4d\", fontcolor=white, fontname=\"Helvetica\"];\n");
+        dot.append("    edge [color=\"#b3b3b3\"];\n");
+        dot.append("    bgcolor=\"#121212\";\n");
+        
+        if (raiz != null) {
+            generarNodosGraphviz(raiz, dot);
+        }
+        dot.append("}\n");
+
+        try (PrintWriter writer = new PrintWriter(new FileWriter(rutaArchivo))) {
+            writer.print(dot.toString());
+        } catch (Exception e) {
+            System.out.println("Error al exportar DOT: " + e.getMessage());
+        }
+    }
+
+    private void generarNodosGraphviz(NodoArbol nodo, StringBuilder dot) {
+        if (nodo != null) {
+            String nombre = nodo.getCancion().getNombre().replace("\"", "\\\"");
+            dot.append("    \"").append(nodo.hashCode()).append("\" [label=\"").append(nombre).append("\"];\n");
+
+            if (nodo.getIzquierdo() != null) {
+                dot.append("    \"").append(nodo.hashCode()).append("\" -> \"").append(nodo.getIzquierdo().hashCode()).append("\";\n");
+                generarNodosGraphviz(nodo.getIzquierdo(), dot);
+            }
+            if (nodo.getDerecho() != null) {
+                dot.append("    \"").append(nodo.hashCode()).append("\" -> \"").append(nodo.getDerecho().hashCode()).append("\";\n");
+                generarNodosGraphviz(nodo.getDerecho(), dot);
+            }
         }
     }
 }

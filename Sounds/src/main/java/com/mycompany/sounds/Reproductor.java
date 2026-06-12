@@ -23,11 +23,10 @@ public class Reproductor {
         
         try {
             File archivo = new File(rutaArchivo);
-            // Convertimos la ruta del archivo a formato URI requerido por JavaFX
             Media media = new Media(archivo.toURI().toString());
             mediaPlayer = new MediaPlayer(media);
             
-            // Aplicamos automáticamente el volumen actual de la barra
+            // Aplicamos automaticamente el volumen actual de la barra
             mediaPlayer.setVolume(volumenActual);
             
             mediaPlayer.play();
@@ -39,7 +38,7 @@ public class Reproductor {
     public void detener() {
         if (mediaPlayer != null) {
             mediaPlayer.stop();
-            mediaPlayer.dispose(); // Libera por completo la memoria del archivo anterior
+            mediaPlayer.dispose(); 
             mediaPlayer = null;
         }
     }
@@ -62,7 +61,7 @@ public class Reproductor {
         if (mediaPlayer != null) {
             Duration total = mediaPlayer.getTotalDuration();
             if (total != Duration.UNKNOWN) {
-                // Multiplicamos la duración total por el porcentaje del slider de progreso
+          
                 mediaPlayer.seek(total.multiply(porcentaje));
             }
         }
@@ -85,10 +84,6 @@ public class Reproductor {
     public boolean isReproduciendo() {
         return mediaPlayer != null && mediaPlayer.getStatus() == MediaPlayer.Status.PLAYING;
     }
-
-    // ==========================================
-    // --- AQUÍ ESTÁ EL MÉTODO QUE FALTABA ---
-    // ==========================================
     public void setVolumen(double nivelVolumen) {
         this.volumenActual = nivelVolumen; 
         if (mediaPlayer != null) {

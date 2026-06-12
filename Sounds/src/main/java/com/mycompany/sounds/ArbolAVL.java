@@ -1,12 +1,10 @@
 package com.mycompany.sounds;
 
+import java.io.FileWriter;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- *
- * @author barri
- */
 public class ArbolAVL {
     private NodoArbol raiz;
 
@@ -20,18 +18,13 @@ public class ArbolAVL {
         return listaExtraida;
     }
 
-    /**
-     * Proceso recursivo que recorre el árbol (Izquierdo - Raíz - Derecho).
-     */
     private void recorridoInOrden(NodoArbol actual, List<Cancion> listaExtraida) {
         if (actual != null) {
             recorridoInOrden(actual.getIzquierdo(), listaExtraida);
-            listaExtraida.add(actual.getCancion()); // Agrega la canción al llegar a la raíz del subárbol
+            listaExtraida.add(actual.getCancion());
             recorridoInOrden(actual.getDerecho(), listaExtraida);
         }
     }
-
-    // --- MÉTODOS ORIGINALES DE TU ÁRBOL AVL ---
 
     private int obtenerAltura(NodoArbol nodo) {
         if (nodo == null) return 0;
@@ -101,6 +94,75 @@ public class ArbolAVL {
         return nodo;
     }   
 
+    // =========================================================================
+    // --- NUEVO: ELIMINACIÓN AVL (CON RE-BALANCEO Y ROTACIONES MATEMÁTICAS) ---
+    // =========================================================================
+    public void eliminar(String nombre) {
+        raiz = eliminarRecursivo(raiz, nombre);
+    }
+
+    private NodoArbol eliminarRecursivo(NodoArbol nodo, String nombre) {
+        if (nodo == null) return nodo;
+
+        int comparacion = nombre.compareToIgnoreCase(nodo.getCancion().getNombre());
+
+        if (comparacion < 0) {
+            nodo.setIzquierdo(eliminarRecursivo(nodo.getIzquierdo(), nombre));
+        } else if (comparacion > 0) {
+            nodo.setDerecho(eliminarRecursivo(nodo.getDerecho(), nombre));
+        } else {
+            // Nodo con uno o ningún hijo
+            if ((nodo.getIzquierdo() == null) || (nodo.getDerecho() == null)) {
+                NodoArbol temp = null;
+                if (temp == nodo.getIzquierdo()) temp = nodo.getDerecho();
+                else temp = nodo.getIzquierdo();
+
+                if (temp == null) {
+                    temp = nodo;
+                    nodo = null;
+                } else {
+                    nodo = temp;
+                }
+            } else {
+                // Nodo con dos hijos: buscar el sucesor
+                NodoArbol temp = encontrarMinimo(nodo.getDerecho());
+                nodo.setCancion(temp.getCancion());
+                nodo.setDerecho(eliminarRecursivo(nodo.getDerecho(), temp.getCancion().getNombre()));
+            }
+        }
+
+        if (nodo == null) return nodo;
+
+        nodo.setAltura(Math.max(obtenerAltura(nodo.getIzquierdo()), obtenerAltura(nodo.getDerecho())) + 1);
+        int balance = obtenerFactorEquilibrio(nodo);
+
+        // Rotaciones de balanceo tras eliminación
+        if (balance > 1 && obtenerFactorEquilibrio(nodo.getIzquierdo()) >= 0) {
+            return rotacionDerecha(nodo);
+        }
+        if (balance > 1 && obtenerFactorEquilibrio(nodo.getIzquierdo()) < 0) {
+            nodo.setIzquierdo(rotacionIzquierda(nodo.getIzquierdo()));
+            return rotacionDerecha(nodo);
+        }
+        if (balance < -1 && obtenerFactorEquilibrio(nodo.getDerecho()) <= 0) {
+            return rotacionIzquierda(nodo);
+        }
+        if (balance < -1 && obtenerFactorEquilibrio(nodo.getDerecho()) > 0) {
+            nodo.setDerecho(rotacionDerecha(nodo.getDerecho()));
+            return rotacionIzquierda(nodo);
+        }
+
+        return nodo;
+    }
+
+    private NodoArbol encontrarMinimo(NodoArbol nodo) {
+        NodoArbol actual = nodo;
+        while (actual.getIzquierdo() != null) {
+            actual = actual.getIzquierdo();
+        }
+        return actual;
+    }
+
     public Cancion buscar(String nombre) {
         return buscarRecursivo(raiz, nombre);
     }
@@ -112,30 +174,99 @@ public class ArbolAVL {
         if (comparacion < 0) return buscarRecursivo(nodo.getIzquierdo(), nombre);
         return buscarRecursivo(nodo.getDerecho(), nombre);
     }
+
     public List<Cancion> buscarPorFiltro(String textoBusqueda) {
         List<Cancion> resultados = new ArrayList<>();
-        if (textoBusqueda == null || textoBusqueda.trim().isEmpty()) {
-            return obtenerListaInOrden(); // Si no hay texto, devuelve todo
-        }
+        if (textoBusqueda == null || textoBusqueda.trim().isEmpty()) return obtenerListaInOrden();
         buscarFiltroRecursivo(raiz, textoBusqueda.toLowerCase().trim(), resultados);
         return resultados;
     }
 
     private void buscarFiltroRecursivo(NodoArbol nodo, String filtro, List<Cancion> resultados) {
         if (nodo != null) {
-            // Recorremos el subárbol izquierdo
             buscarFiltroRecursivo(nodo.getIzquierdo(), filtro, resultados);
-            
-            // Verificamos si la canción o el artista contienen el texto buscado
             String nombreCancion = nodo.getCancion().getNombre().toLowerCase();
             String nombreArtista = nodo.getCancion().getArtista().toLowerCase();
-            
             if (nombreCancion.contains(filtro) || nombreArtista.contains(filtro)) {
                 resultados.add(nodo.getCancion());
             }
-            
-            // Recorremos el subárbol derecho
             buscarFiltroRecursivo(nodo.getDerecho(), filtro, resultados);
+        }
+    }
+
+    // =========================================================================
+    // --- NUEVO: RECORRIDOS (INORDEN, PREORDEN, POSTORDEN) PARA LA RÚBRICA ---
+    // =========================================================================
+    public String obtenerRecorridosCompletos() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("PRE-ORDEN (Raíz, Izq, Der):\n");
+        generarPreOrden(raiz, sb);
+        sb.append("\n\nIN-ORDEN (Izq, Raíz, Der):\n");
+        generarInOrden(raiz, sb);
+        sb.append("\n\nPOST-ORDEN (Izq, Der, Raíz):\n");
+        generarPostOrden(raiz, sb);
+        return sb.toString();
+    }
+
+    private void generarPreOrden(NodoArbol nodo, StringBuilder sb) {
+        if (nodo != null) {
+            sb.append(nodo.getCancion().getNombre()).append(" | ");
+            generarPreOrden(nodo.getIzquierdo(), sb);
+            generarPreOrden(nodo.getDerecho(), sb);
+        }
+    }
+
+    private void generarInOrden(NodoArbol nodo, StringBuilder sb) {
+        if (nodo != null) {
+            generarInOrden(nodo.getIzquierdo(), sb);
+            sb.append(nodo.getCancion().getNombre()).append(" | ");
+            generarInOrden(nodo.getDerecho(), sb);
+        }
+    }
+
+    private void generarPostOrden(NodoArbol nodo, StringBuilder sb) {
+        if (nodo != null) {
+            generarPostOrden(nodo.getIzquierdo(), sb);
+            generarPostOrden(nodo.getDerecho(), sb);
+            sb.append(nodo.getCancion().getNombre()).append(" | ");
+        }
+    }
+
+    // =========================================================================
+    // --- NUEVO: GENERADOR DE GRAPHVIZ (5 PUNTOS DE RÚBRICA) ---
+    // =========================================================================
+    public void generarGraphviz(String rutaArchivo) {
+        StringBuilder dot = new StringBuilder();
+        dot.append("digraph ArbolAVL {\n");
+        dot.append("    node [shape=record, style=filled, fillcolor=\"#1db954\", fontcolor=white, fontname=\"Helvetica\"];\n");
+        dot.append("    edge [color=\"#b3b3b3\"];\n");
+        dot.append("    bgcolor=\"#121212\";\n");
+        
+        if (raiz != null) {
+            generarNodosGraphviz(raiz, dot);
+        }
+        dot.append("}\n");
+
+        try (PrintWriter writer = new PrintWriter(new FileWriter(rutaArchivo))) {
+            writer.print(dot.toString());
+        } catch (Exception e) {
+            System.out.println("Error al exportar DOT: " + e.getMessage());
+        }
+    }
+
+    private void generarNodosGraphviz(NodoArbol nodo, StringBuilder dot) {
+        if (nodo != null) {
+            String nombre = nodo.getCancion().getNombre().replace("\"", "\\\"");
+            dot.append("    \"").append(nodo.hashCode()).append("\" [label=\"").append(nombre).append("\"];\n");
+
+            if (nodo.getIzquierdo() != null) {
+                dot.append("    \"").append(nodo.hashCode()).append("\" -> \"").append(nodo.getIzquierdo().hashCode()).append("\";\n");
+                generarNodosGraphviz(nodo.getIzquierdo(), dot);
+            }
+            if (nodo.getDerecho() != null) {
+                dot.append("    \"").append(nodo.hashCode()).append("\" -> \"").append(nodo.getDerecho().hashCode()).append("\";\n");
+                generarNodosGraphviz(nodo.getDerecho(), dot);
+            }
         }
     }
 }

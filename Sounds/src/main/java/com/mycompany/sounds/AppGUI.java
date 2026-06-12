@@ -20,12 +20,16 @@ import javafx.animation.Timeline;
 import javafx.application.Application;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Alert;
 import javafx.scene.control.Button;
+import javafx.scene.control.ButtonBar;
+import javafx.scene.control.ButtonType;
 import javafx.scene.control.ChoiceDialog;
 import javafx.scene.control.ContextMenu;
+import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.MenuItem;
@@ -34,7 +38,7 @@ import javafx.scene.control.Slider;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
-import javafx.scene.control.TextArea; // IMPORTANTE PARA EL NUEVO PANEL
+import javafx.scene.control.TextArea;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.cell.PropertyValueFactory;
@@ -42,6 +46,7 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.MouseButton;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -281,7 +286,6 @@ public class AppGUI extends Application {
         Region espaciadorBusqueda = new Region();
         HBox.setHgrow(espaciadorBusqueda, Priority.ALWAYS);
 
-        // BOTÓN CONFIGURACIÓN AHORA ABRE EL PANEL
         Button btnConfiguracion = new Button("⚙ Ajustes");
         btnConfiguracion.setStyle("-fx-background-color: #282828; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 5; -fx-padding: 5 10 5 10;");
         btnConfiguracion.setOnMouseEntered(e -> btnConfiguracion.setStyle("-fx-background-color: #3e3e3e; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 5; -fx-padding: 5 10 5 10;"));
@@ -402,14 +406,16 @@ public class AppGUI extends Application {
         tablaCanciones.getColumns().addAll(colFavorita, colNombre, colArtista, colAlbum, colGenero);
         VBox.setVgrow(tablaCanciones, Priority.ALWAYS);
         
+        // --- MENÚ CONTEXTUAL ---
         ContextMenu menuContextual = new ContextMenu();
         menuContextual.setStyle("-fx-base: #282828; -fx-control-inner-background: #282828; -fx-text-fill: white;");
         MenuItem itemAñadirCola = new MenuItem("➕ Agregar a la fila de reproducción");
         MenuItem itemAñadirPlaylist = new MenuItem("🎵 Agregar a playlist...");
         MenuItem itemFavorito = new MenuItem("⭐ Guardar en Mis me gusta"); 
+        MenuItem itemEditar = new MenuItem("✏️ Editar información");
         SeparatorMenuItem separador = new SeparatorMenuItem();
         MenuItem itemEliminarPlaylist = new MenuItem("➖ Eliminar de esta playlist");
-        menuContextual.getItems().addAll(itemAñadirCola, itemAñadirPlaylist, itemFavorito, separador, itemEliminarPlaylist);
+        menuContextual.getItems().addAll(itemAñadirCola, itemAñadirPlaylist, itemFavorito, itemEditar, separador, itemEliminarPlaylist);
         tablaCanciones.setContextMenu(menuContextual);
 
         itemAñadirCola.setOnAction(e -> { Cancion s = tablaCanciones.getSelectionModel().getSelectedItem(); if(s!=null) listaObservableCola.add(s); });
@@ -438,6 +444,99 @@ public class AppGUI extends Application {
                     vistaPlaylists.getSelectionModel().clearSelection();
                     vistaPlaylists.getSelectionModel().select(playlistSeleccionada);
                 }
+            }
+        });
+
+        // --- LÓGICA DE EDICIÓN (RECONSTRUCCIÓN DE ÁRBOLES) ---
+        itemEditar.setOnAction(evento -> {
+            Cancion seleccionada = tablaCanciones.getSelectionModel().getSelectedItem();
+            if (seleccionada != null) {
+                Dialog<Cancion> dialog = new Dialog<>();
+                dialog.setTitle("Modificar Canción");
+                dialog.setHeaderText("Editando metadatos de:\n" + seleccionada.getNombre());
+                dialog.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white; -fx-control-inner-background: #121212;");
+
+                ButtonType btnGuardarData = new ButtonType("Guardar Cambios", ButtonBar.ButtonData.OK_DONE);
+                dialog.getDialogPane().getButtonTypes().addAll(btnGuardarData, ButtonType.CANCEL);
+
+                GridPane grid = new GridPane();
+                grid.setHgap(10);
+                grid.setVgap(10);
+                grid.setPadding(new Insets(20, 20, 10, 10));
+
+                TextField fieldNombre = new TextField(seleccionada.getNombre());
+                TextField fieldArtista = new TextField(seleccionada.getArtista());
+                TextField fieldAlbum = new TextField(seleccionada.getAlbum());
+                TextField fieldGenero = new TextField(seleccionada.getGenero() != null ? seleccionada.getGenero() : "Desconocido");
+
+                String tfStyle = "-fx-background-color: #3e3e3e; -fx-text-fill: white;";
+                fieldNombre.setStyle(tfStyle);
+                fieldArtista.setStyle(tfStyle);
+                fieldAlbum.setStyle(tfStyle);
+                fieldGenero.setStyle(tfStyle);
+
+                Label lbl1 = new Label("Nombre:"); lbl1.setStyle("-fx-text-fill: white;");
+                Label lbl2 = new Label("Artista:"); lbl2.setStyle("-fx-text-fill: white;");
+                Label lbl3 = new Label("Álbum:"); lbl3.setStyle("-fx-text-fill: white;");
+                Label lbl4 = new Label("Género:"); lbl4.setStyle("-fx-text-fill: white;");
+
+                grid.add(lbl1, 0, 0); grid.add(fieldNombre, 1, 0);
+                grid.add(lbl2, 0, 1); grid.add(fieldArtista, 1, 1);
+                grid.add(lbl3, 0, 2); grid.add(fieldAlbum, 1, 2);
+                grid.add(lbl4, 0, 3); grid.add(fieldGenero, 1, 3);
+
+                dialog.getDialogPane().setContent(grid);
+
+                dialog.setResultConverter(dialogButton -> {
+                    if (dialogButton == btnGuardarData) {
+                        String viejoNombre = seleccionada.getNombre();
+                        String nuevoNombre = fieldNombre.getText().trim();
+                        
+                        // Actualizamos los datos en memoria
+                        seleccionada.setArtista(fieldArtista.getText().trim());
+                        seleccionada.setAlbum(fieldAlbum.getText().trim());
+                        seleccionada.setGenero(fieldGenero.getText().trim());
+
+                        // Si el nombre cambió, reconstruimos los árboles para asegurar el orden
+                        if (!viejoNombre.equals(nuevoNombre)) {
+                            seleccionada.setNombre(nuevoNombre);
+                            
+                            if (listaOriginalCanciones != null) {
+                                arbolBibliotecaCentral = new ArbolAVL();
+                                arbolNormalCentral = new ArbolBinarioBusqueda();
+                                for (Cancion c : listaOriginalCanciones) {
+                                    arbolBibliotecaCentral.insertar(c);
+                                    arbolNormalCentral.insertar(c);
+                                }
+                            }
+
+                            for (Map.Entry<String, ArbolBinarioBusqueda> entry : mapaPlaylists.entrySet()) {
+                                List<Cancion> cancionesPl = entry.getValue().obtenerListaInOrden();
+                                ArbolBinarioBusqueda nuevoArbol = new ArbolBinarioBusqueda();
+                                for(Cancion c : cancionesPl) {
+                                    nuevoArbol.insertar(c); 
+                                }
+                                mapaPlaylists.put(entry.getKey(), nuevoArbol);
+                            }
+                        }
+                        return seleccionada;
+                    }
+                    return null;
+                });
+
+                dialog.showAndWait().ifPresent(resultado -> {
+                    if (tituloCentral.getText().equals("Biblioteca Principal") && arbolBibliotecaCentral != null) {
+                        listaOriginalCanciones = arbolBibliotecaCentral.obtenerListaInOrden();
+                        listaObservableCanciones = FXCollections.observableArrayList(listaOriginalCanciones);
+                        tablaCanciones.setItems(listaObservableCanciones);
+                    } else if (playlistSeleccionada != null) {
+                        ArbolBinarioBusqueda arbolLista = mapaPlaylists.get(playlistSeleccionada);
+                        if (arbolLista != null) {
+                            tablaCanciones.setItems(FXCollections.observableArrayList(arbolLista.obtenerListaInOrden()));
+                        }
+                    }
+                    tablaCanciones.refresh();
+                });
             }
         });
         
@@ -759,7 +858,6 @@ public class AppGUI extends Application {
         escenarioPrincipal.show();
     }
 
-    // --- NUEVO PANEL DE CONFIGURACIONES Y ESTADÍSTICAS ---
     private void abrirPanelConfiguraciones() {
         Stage ventanaConfig = new Stage();
         ventanaConfig.setTitle("⚙ Ajustes y Estadísticas");

@@ -86,7 +86,6 @@ public class AppGUI extends Application {
     private boolean modoRepeticion = false;
     private ListaCircular listaRepeticion = new ListaCircular(); 
     
-    // --- PILA Y LISTA ESPEJO PARA HISTORIAL ---
     private Pila historial = new Pila(); 
     private ObservableList<Cancion> listaObservableHistorial = FXCollections.observableArrayList();
 
@@ -98,7 +97,6 @@ public class AppGUI extends Application {
     private Set<String> cancionesFavoritas = new HashSet<>();
     private boolean modoAleatorio = false;
 
-    // MOTORES DE RECOLECCIÓN DE DATOS PARA ESTADÍSTICAS
     private Map<String, Integer> contadorCanciones = new HashMap<>();
     private Map<String, Integer> contadorArtistas = new HashMap<>();
     private Map<String, Integer> contadorGeneros = new HashMap<>();
@@ -112,7 +110,6 @@ public class AppGUI extends Application {
         nombresPlaylists.add("Mis me gusta");
         mapaPlaylists.put("Mis me gusta", new ArbolBinarioBusqueda()); 
 
-        // --- 1. PANEL IZQUIERDO ---
         VBox menuIzquierdo = new VBox(15);
         menuIzquierdo.setPrefWidth(220);
         menuIzquierdo.setStyle("-fx-background-color: #000000; -fx-padding: 20px;");
@@ -124,7 +121,6 @@ public class AppGUI extends Application {
         btnCargarMusica.setStyle("-fx-background-color: #1db954; -fx-text-fill: white; -fx-font-weight: bold; -fx-background-radius: 20; -fx-cursor: hand;");
         btnCargarMusica.setPrefWidth(180);
 
-        // NUEVO: Botón de Historial
         Button btnHistorial = new Button("🕒 Historial de Reproducción");
         btnHistorial.setStyle("-fx-background-color: transparent; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-alignment: center-left; -fx-padding: 0;");
         
@@ -165,7 +161,6 @@ public class AppGUI extends Application {
         contenedorCaratula.getChildren().addAll(vistaCaratula, lblInfoCancionActual);
         menuIzquierdo.getChildren().addAll(textoMenu, btnCargarMusica, btnHistorial, textoPlaylists, barraPersistencia, btnNuevaPlaylist, vistaPlaylists, contenedorCaratula);
 
-        // --- LÓGICA DE EVENTOS DEL MENÚ IZQUIERDO ---
         btnHistorial.setOnAction(e -> {
             vistaPlaylists.getSelectionModel().clearSelection();
             playlistSeleccionada = null;
@@ -175,10 +170,8 @@ public class AppGUI extends Application {
             lblContadorCanciones.setText(listaObservableHistorial.size() + " canciones escuchadas");
         });
 
-        // --- GUARDAR (PLAYLISTS E HISTORIAL) ---
         btnGuardar.setOnAction(evento -> {
             try {
-                // 1. Guardar Playlists
                 try (PrintWriter writer = new PrintWriter(new FileWriter("mis_playlists.txt"))) {
                     for (Map.Entry<String, ArbolBinarioBusqueda> entry : mapaPlaylists.entrySet()) {
                         String nombreLista = entry.getKey();
@@ -189,8 +182,6 @@ public class AppGUI extends Application {
                         }
                     }
                 }
-
-                // 2. Guardar Historial (Pila)
                 try (PrintWriter writerHistorial = new PrintWriter(new FileWriter("historial_cifrado.txt"))) {
                     for (Cancion c : listaObservableHistorial) {
                         String genero = c.getGenero() != null ? c.getGenero() : "Desconocido";
@@ -198,27 +189,22 @@ public class AppGUI extends Application {
                         writerHistorial.println(GestorEncriptacion.cifrar(datosPlanos));
                     }
                 }
-
                 Alert alerta = new Alert(Alert.AlertType.INFORMATION);
                 alerta.setTitle("Guardado Exitoso");
                 alerta.setHeaderText(null);
                 alerta.setContentText("Las Playlists y el Historial han sido cifrados y guardados.");
                 alerta.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
                 alerta.showAndWait();
-
             } catch (Exception e) { System.out.println("Error al guardar: " + e.getMessage()); }
         });
 
-        // --- CARGAR (PLAYLISTS E HISTORIAL) ---
         btnCargar.setOnAction(evento -> {
-            // 1. Cargar Playlists
             File archivoPl = new File("mis_playlists.txt");
             if (archivoPl.exists()) {
                 try (BufferedReader reader = new BufferedReader(new FileReader(archivoPl))) {
                     String lineaCifrada;
                     mapaPlaylists.clear(); nombresPlaylists.clear(); cancionesFavoritas.clear();
                     nombresPlaylists.add("Mis me gusta"); mapaPlaylists.put("Mis me gusta", new ArbolBinarioBusqueda());
-                    
                     while ((lineaCifrada = reader.readLine()) != null) {
                         String datosPlanos = GestorEncriptacion.descifrar(lineaCifrada);
                         String[] partes = datosPlanos.split("\\|\\|");
@@ -239,17 +225,14 @@ public class AppGUI extends Application {
                             if (nombreLista.equals("Mis me gusta")) cancionesFavoritas.add(c.getRuta());
                         }
                     }
-                } catch (Exception e) { System.out.println("Error al cargar playlists: " + e.getMessage()); }
+                } catch (Exception e) {}
             }
-
-            // 2. Cargar Historial
             File archivoHistorial = new File("historial_cifrado.txt");
             if (archivoHistorial.exists()) {
                 try (BufferedReader readerHist = new BufferedReader(new FileReader(archivoHistorial))) {
                     String lineaCifrada;
                     listaObservableHistorial.clear();
                     List<Cancion> tempReversa = new ArrayList<>();
-                    
                     while ((lineaCifrada = readerHist.readLine()) != null) {
                         String datosPlanos = GestorEncriptacion.descifrar(lineaCifrada);
                         String[] partes = datosPlanos.split("\\|\\|");
@@ -264,14 +247,12 @@ public class AppGUI extends Application {
                             tempReversa.add(c);
                         }
                     }
-                    // Reconstruir la pila original matemáticamente
                     historial = new Pila(); 
                     for (int i = tempReversa.size() - 1; i >= 0; i--) {
                         historial.push(tempReversa.get(i));
                     }
-                } catch (Exception e) { System.out.println("Error al cargar historial: " + e.getMessage()); }
+                } catch (Exception e) {}
             }
-
             if (tituloCentral.getText().equals("Historial de Reproducción")) {
                 tablaCanciones.setItems(listaObservableHistorial);
                 lblContadorCanciones.setText(listaObservableHistorial.size() + " canciones escuchadas");
@@ -279,7 +260,6 @@ public class AppGUI extends Application {
             tablaCanciones.refresh();
         });
 
-        // --- 2. PANEL CENTRAL ---
         VBox panelCentral = new VBox(10);
         panelCentral.setStyle("-fx-background-color: #121212; -fx-padding: 20px;");
         
@@ -509,7 +489,6 @@ public class AppGUI extends Application {
 
                         if (!viejoNombre.equals(nuevoNombre)) {
                             seleccionada.setNombre(nuevoNombre);
-                            
                             if (listaOriginalCanciones != null) {
                                 arbolBibliotecaCentral = new ArbolAVL();
                                 arbolNormalCentral = new ArbolBinarioBusqueda();
@@ -518,13 +497,10 @@ public class AppGUI extends Application {
                                     arbolNormalCentral.insertar(c);
                                 }
                             }
-
                             for (Map.Entry<String, ArbolBinarioBusqueda> entry : mapaPlaylists.entrySet()) {
                                 List<Cancion> cancionesPl = entry.getValue().obtenerListaInOrden();
                                 ArbolBinarioBusqueda nuevoArbol = new ArbolBinarioBusqueda();
-                                for(Cancion c : cancionesPl) {
-                                    nuevoArbol.insertar(c); 
-                                }
+                                for(Cancion c : cancionesPl) nuevoArbol.insertar(c); 
                                 mapaPlaylists.put(entry.getKey(), nuevoArbol);
                             }
                         }
@@ -548,7 +524,7 @@ public class AppGUI extends Application {
                 });
             }
         });
-        
+
         panelCentral.getChildren().addAll(barraBusqueda, encabezadoBiblioteca, tablaCanciones);
 
         // --- 3. PANEL DERECHO ---
@@ -573,9 +549,7 @@ public class AppGUI extends Application {
 
         btnQuitarCola.setOnAction(e -> {
             int indice = tablaCola.getSelectionModel().getSelectedIndex();
-            if (indice >= 0) {
-                listaObservableCola.remove(indice);
-            }
+            if (indice >= 0) { listaObservableCola.remove(indice); }
         });
 
         btnSubirCola.setOnAction(e -> {
@@ -644,7 +618,6 @@ public class AppGUI extends Application {
             if (nuevoValor != null) {
                 playlistSeleccionada = nuevoValor;
                 tituloCentral.setText(nuevoValor);
-                
                 ArbolBinarioBusqueda arbolLista = mapaPlaylists.get(nuevoValor);
                 if (arbolLista != null) {
                     List<Cancion> cancionesPlaylist = arbolLista.obtenerListaInOrden();
@@ -751,7 +724,6 @@ public class AppGUI extends Application {
                 listaOriginalCanciones = arbolBibliotecaCentral.obtenerListaInOrden();
                 listaObservableCanciones = FXCollections.observableArrayList(listaOriginalCanciones);
                 tablaCanciones.setItems(listaObservableCanciones);
-                
                 lblContadorCanciones.setText(listaOriginalCanciones.size() + " canciones");
                 
                 modoRepeticion = false; modoAleatorio = false;
@@ -866,20 +838,20 @@ public class AppGUI extends Application {
         escenarioPrincipal.show();
     }
 
-    // --- MÉTODOS DE SINCRONIZACIÓN DE HISTORIAL ---
     private void agregarAlHistorial(Cancion c) {
         historial.push(c);
-        listaObservableHistorial.add(0, c); // Lo añadimos al inicio visualmente
+        listaObservableHistorial.add(0, c); 
     }
 
     private Cancion sacarDelHistorial() {
         Cancion c = historial.pop();
         if (c != null && !listaObservableHistorial.isEmpty()) {
-            listaObservableHistorial.remove(0); // Lo removemos visualmente
+            listaObservableHistorial.remove(0); 
         }
         return c;
     }
 
+    // --- PANEL DE AJUSTES CON OPCIONES DE RÚBRICA (RECORRIDOS Y GRAPHVIZ) ---
     private void abrirPanelConfiguraciones() {
         Stage ventanaConfig = new Stage();
         ventanaConfig.setTitle("⚙ Ajustes y Estadísticas");
@@ -893,24 +865,37 @@ public class AppGUI extends Application {
 
         TextArea txtReporte = new TextArea();
         txtReporte.setEditable(false);
-        txtReporte.setPrefSize(500, 350);
+        txtReporte.setPrefSize(550, 300);
         txtReporte.setStyle("-fx-control-inner-background: #282828; -fx-text-fill: white; -fx-font-family: 'Consolas'; -fx-font-size: 13px;");
         txtReporte.setText(generarReporteEstadisticas());
 
-        HBox botones = new HBox(15);
-        botones.setAlignment(Pos.CENTER);
-
+        // Fila 1: Opciones de Estadísticas
+        HBox botonesStats = new HBox(15);
+        botonesStats.setAlignment(Pos.CENTER);
         Button btnActualizar = new Button("🔄 Actualizar");
         Button btnGuardarStats = new Button("🔒 Guardar (Cifrado)");
         Button btnCargarStats = new Button("🔓 Cargar (Descifrado)");
-
         String estiloBtn = "-fx-background-color: #1db954; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 5; -fx-padding: 8px 15px;";
         btnActualizar.setStyle(estiloBtn);
         btnGuardarStats.setStyle(estiloBtn);
         btnCargarStats.setStyle(estiloBtn);
+        botonesStats.getChildren().addAll(btnActualizar, btnGuardarStats, btnCargarStats);
 
+        // Fila 2: Opciones de Evaluación (Rúbrica)
+        Label lblEvaluacion = new Label("Opciones de Evaluación (Rúbrica)");
+        lblEvaluacion.setStyle("-fx-text-fill: #b3b3b3; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 10 0 0 0;");
+        
+        HBox botonesRubrica = new HBox(15);
+        botonesRubrica.setAlignment(Pos.CENTER);
+        Button btnRecorridos = new Button("🌳 Ver Recorridos (In/Pre/Post)");
+        Button btnGraphviz = new Button("🖼️ Generar Graphviz (.dot)");
+        String estiloBtnRubrica = "-fx-background-color: #3e3e3e; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 5; -fx-padding: 8px 15px;";
+        btnRecorridos.setStyle(estiloBtnRubrica);
+        btnGraphviz.setStyle(estiloBtnRubrica);
+        botonesRubrica.getChildren().addAll(btnRecorridos, btnGraphviz);
+
+        // Funciones de botones Stats
         btnActualizar.setOnAction(e -> txtReporte.setText(generarReporteEstadisticas()));
-
         btnGuardarStats.setOnAction(e -> {
             if(txtReporte.getText().trim().isEmpty() || txtReporte.getText().contains("No hay canciones")) {
                  Alert a = new Alert(Alert.AlertType.WARNING, "No hay datos válidos para guardar.");
@@ -928,7 +913,6 @@ public class AppGUI extends Application {
                 a.show();
             } catch (Exception ex) {}
         });
-
         btnCargarStats.setOnAction(e -> {
             File file = new File("estadisticas_cifradas.txt");
             if (!file.exists()) {
@@ -950,10 +934,55 @@ public class AppGUI extends Application {
             } catch (Exception ex) {}
         });
 
-        botones.getChildren().addAll(btnActualizar, btnGuardarStats, btnCargarStats);
-        layout.getChildren().addAll(lblTitulo, txtReporte, botones);
+        // Funciones de botones Rúbrica
+        btnRecorridos.setOnAction(e -> {
+            if (arbolBibliotecaCentral == null || arbolBibliotecaCentral.obtenerListaInOrden().isEmpty()) {
+                Alert a = new Alert(Alert.AlertType.WARNING, "Debes cargar la biblioteca para ver los recorridos.");
+                a.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
+                a.show();
+                return;
+            }
+            String recorridos = arbolBibliotecaCentral.obtenerRecorridosCompletos();
+            Alert a = new Alert(Alert.AlertType.INFORMATION);
+            a.setTitle("Recorridos del Árbol AVL");
+            a.setHeaderText("InOrden, PreOrden y PostOrden de la Biblioteca");
+            
+            TextArea ta = new TextArea(recorridos);
+            ta.setEditable(false);
+            ta.setWrapText(true);
+            ta.setPrefSize(600, 300);
+            ta.setStyle("-fx-control-inner-background: #121212; -fx-text-fill: #1db954; -fx-font-family: 'Consolas';");
+            
+            a.getDialogPane().setContent(ta);
+            a.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
+            a.showAndWait();
+        });
 
-        Scene escena = new Scene(layout, 550, 480);
+        btnGraphviz.setOnAction(e -> {
+            if (arbolBibliotecaCentral == null || arbolBibliotecaCentral.obtenerListaInOrden().isEmpty()) {
+                Alert a = new Alert(Alert.AlertType.WARNING, "Debes cargar la biblioteca para generar Graphviz.");
+                a.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
+                a.show();
+                return;
+            }
+            String rutaDot = "arbol_avl.dot";
+            arbolBibliotecaCentral.generarGraphviz(rutaDot);
+            
+            Alert a = new Alert(Alert.AlertType.INFORMATION);
+            a.setTitle("Graphviz Generado");
+            a.setHeaderText("Archivo DOT creado con éxito en la raíz del proyecto");
+            a.setContentText("Se ha creado el archivo: " + rutaDot + "\n\n" +
+                             "OPCIONES PARA VISUALIZAR EL ÁRBOL:\n" +
+                             "1. Abre el archivo .dot con el Bloc de notas, copia el texto y pégalo en la web: http://www.webgraphviz.com/\n" +
+                             "2. O bien, si tienes Graphviz instalado, abre tu consola CMD y escribe:\n" +
+                             "   dot -Tpng " + rutaDot + " -o arbol_avl.png");
+            a.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
+            a.showAndWait();
+        });
+
+        layout.getChildren().addAll(lblTitulo, txtReporte, botonesStats, lblEvaluacion, botonesRubrica);
+
+        Scene escena = new Scene(layout, 600, 580);
         ventanaConfig.setScene(escena);
         ventanaConfig.show();
     }

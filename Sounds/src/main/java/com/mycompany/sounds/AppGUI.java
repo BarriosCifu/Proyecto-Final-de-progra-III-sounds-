@@ -424,29 +424,56 @@ public class AppGUI extends Application {
         TableColumn<Cancion, String> colGenero = new TableColumn<>("Género");
         colGenero.setCellValueFactory(new PropertyValueFactory<>("genero"));
 
-        // --- NUEVAS COLUMNAS: TAMAÑO Y DURACIÓN ESTIMADA ---
-        TableColumn<Cancion, String> colTamano = new TableColumn<>("Tamaño");
-        colTamano.setCellValueFactory(cellData -> {
-            File f = new File(cellData.getValue().getRuta());
-            if (f.exists()) {
-                return new javafx.beans.property.SimpleStringProperty(String.format("%.2f MB", f.length() / (1024.0 * 1024.0)));
+        // --- COLUMNA AÑO ---
+        TableColumn<Cancion, Number> colAnio = new TableColumn<>("Año");
+        colAnio.setCellValueFactory(new PropertyValueFactory<>("anio"));
+        colAnio.setCellFactory(column -> new TableCell<Cancion, Number>() {
+            @Override
+            protected void updateItem(Number item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null || item.intValue() == 0) {
+                    setText(""); 
+                } else {
+                    setText(String.valueOf(item.intValue()));
+                }
             }
-            return new javafx.beans.property.SimpleStringProperty("0.00 MB");
         });
 
-        TableColumn<Cancion, String> colDuracion = new TableColumn<>("Duración");
-        colDuracion.setCellValueFactory(cellData -> {
-            File f = new File(cellData.getValue().getRuta());
-            if (f.exists()) {
-                double mb = f.length() / (1024.0 * 1024.0);
-                int min = (int) mb;
-                int seg = (int) ((mb - min) * 60);
-                return new javafx.beans.property.SimpleStringProperty(String.format("%d:%02d", min, seg));
+        // --- COLUMNA DURACIÓN ---
+        TableColumn<Cancion, Number> colDuracion = new TableColumn<>("Duración");
+        colDuracion.setCellValueFactory(new PropertyValueFactory<>("duracion"));
+        colDuracion.setCellFactory(column -> new TableCell<Cancion, Number>() {
+            @Override
+            protected void updateItem(Number item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    int segTotales = item.intValue();
+                    int min = segTotales / 60;
+                    int seg = segTotales % 60;
+                    setText(String.format("%d:%02d", min, seg));
+                }
             }
-            return new javafx.beans.property.SimpleStringProperty("0:00");
+        });
+
+        // --- COLUMNA TAMAÑO ---
+        TableColumn<Cancion, Number> colTamano = new TableColumn<>("Tamaño");
+        colTamano.setCellValueFactory(new PropertyValueFactory<>("tamano"));
+        colTamano.setCellFactory(column -> new TableCell<Cancion, Number>() {
+            @Override
+            protected void updateItem(Number item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                } else {
+                    double mb = item.doubleValue() / (1024.0 * 1024.0);
+                    setText(String.format("%.2f MB", mb));
+                }
+            }
         });
         
-        tablaCanciones.getColumns().addAll(colFavorita, colNombre, colArtista, colAlbum, colGenero, colDuracion, colTamano);
+        tablaCanciones.getColumns().addAll(colFavorita, colNombre, colArtista, colAlbum, colGenero, colAnio, colDuracion, colTamano);
         VBox.setVgrow(tablaCanciones, Priority.ALWAYS);
         
         ContextMenu menuContextual = new ContextMenu();

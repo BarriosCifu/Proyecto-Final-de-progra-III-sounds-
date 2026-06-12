@@ -1,3 +1,4 @@
+com\mycompany\sounds\AppGUI$3.class
 com\mycompany\sounds\Reproductor.class
 com\mycompany\sounds\GeneradorEstadisticas.class
 com\mycompany\sounds\GestorEncriptacion.class
@@ -6,6 +7,7 @@ com\mycompany\sounds\NodoLista.class
 com\mycompany\sounds\Sounds.class
 com\mycompany\sounds\ArbolBinarioBusqueda.class
 com\mycompany\sounds\AppGUI.class
+com\mycompany\sounds\AppGUI$4.class
 com\mycompany\sounds\Pila.class
 com\mycompany\sounds\LectorArchivos.class
 com\mycompany\sounds\ListaCircular.class
@@ -15,4 +17,5 @@ com\mycompany\sounds\ListaSimple.class
 com\mycompany\sounds\Cola.class
 com\mycompany\sounds\ArbolAVL.class
 com\mycompany\sounds\AppGUI$1.class
+com\mycompany\sounds\AppGUI$2.class
 com\mycompany\sounds\Cancion.class

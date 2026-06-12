@@ -33,7 +33,7 @@ import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.MenuItem;
-import javafx.scene.control.ScrollPane; // NUEVO IMPORT PARA LA IMAGEN
+import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.Slider;
 import javafx.scene.control.TableCell;
@@ -254,7 +254,7 @@ public class AppGUI extends Application {
                     }
                 } catch (Exception e) {}
             }
-            if (tituloCentral.getText().equals("Historial de Reproducción")) {
+            if (tituloCentral.getText().equals("Historial de Reproduccion")) {
                 tablaCanciones.setItems(listaObservableHistorial);
                 lblContadorCanciones.setText(listaObservableHistorial.size() + " canciones escuchadas");
             }
@@ -325,7 +325,7 @@ public class AppGUI extends Application {
                     tablaCanciones.setItems(FXCollections.observableArrayList(filtradasAVL));
                     lblContadorCanciones.setText(filtradasAVL.size() + " resultados");
                     
-                } else if (!tituloCentral.getText().equals("Historial de Reproducción")) {
+                } else if (!tituloCentral.getText().equals("Historial de Reproduccion")) {
                     List<Cancion> filtradasLista = listaOriginalCanciones.stream()
                         .filter(c -> c.getNombre().toLowerCase().contains(valorNuevo.toLowerCase()) || 
                                      c.getArtista().toLowerCase().contains(valorNuevo.toLowerCase()))
@@ -402,7 +402,7 @@ public class AppGUI extends Application {
         
         ContextMenu menuContextual = new ContextMenu();
         menuContextual.setStyle("-fx-base: #282828; -fx-control-inner-background: #282828; -fx-text-fill: white;");
-        MenuItem itemAñadirCola = new MenuItem("➕ Agregar a la fila de reproducción");
+        MenuItem itemAñadirCola = new MenuItem("➕ Agregar a la fila de reproduccion");
         MenuItem itemAñadirPlaylist = new MenuItem("🎵 Agregar a playlist...");
         MenuItem itemFavorito = new MenuItem("⭐ Guardar en Mis me gusta"); 
         MenuItem itemEditar = new MenuItem("✏️ Editar información");
@@ -444,7 +444,7 @@ public class AppGUI extends Application {
             Cancion seleccionada = tablaCanciones.getSelectionModel().getSelectedItem();
             if (seleccionada != null) {
                 Dialog<Cancion> dialog = new Dialog<>();
-                dialog.setTitle("Modificar Canción");
+                dialog.setTitle("Modificar Cancion");
                 dialog.setHeaderText("Editando metadatos de:\n" + seleccionada.getNombre());
                 dialog.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white; -fx-control-inner-background: #121212;");
 
@@ -699,7 +699,7 @@ public class AppGUI extends Application {
         
         btnCargarMusica.setOnAction(evento -> {
             DirectoryChooser selectorDirectorio = new DirectoryChooser();
-            selectorDirectorio.setTitle("Selecciona la carpeta con tu música");
+            selectorDirectorio.setTitle("Selecciona la carpeta con tu musica");
             File carpetaSeleccionada = selectorDirectorio.showDialog(escenarioPrincipal);
             
             if (carpetaSeleccionada != null) {
@@ -832,7 +832,7 @@ public class AppGUI extends Application {
         
         try {
             File archivoLogo = new File("default"); 
-            if (!archivoLogo.exists()) archivoLogo = new File("default.png"); 
+            if (!archivoLogo.exists()) archivoLogo = new File("Sounds.png"); 
             if (archivoLogo.exists()) {
                 escenarioPrincipal.getIcons().add(new Image(archivoLogo.toURI().toString()));
             }
@@ -854,7 +854,7 @@ public class AppGUI extends Application {
         return c;
     }
 
-    // --- PANEL DE AJUSTES CON RÚBRICA Y VISUALIZADOR DE GRAPHVIZ NATIVO ---
+    // --- PANEL DE AJUSTES Y VISUALIZADORES DE GRAPHVIZ (AVL Y ABB) ---
     private void abrirPanelConfiguraciones() {
         Stage ventanaConfig = new Stage();
         ventanaConfig.setTitle("⚙ Ajustes y Estadísticas");
@@ -863,7 +863,7 @@ public class AppGUI extends Application {
         layout.setStyle("-fx-background-color: #121212; -fx-padding: 20px;");
         layout.setAlignment(Pos.CENTER);
 
-        Label lblTitulo = new Label("Módulo de Estadísticas y Rendimiento");
+        Label lblTitulo = new Label("Modulo de Estadísticas y Rendimiento");
         lblTitulo.setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;");
 
         TextArea txtReporte = new TextArea();
@@ -883,17 +883,27 @@ public class AppGUI extends Application {
         btnCargarStats.setStyle(estiloBtn);
         botonesStats.getChildren().addAll(btnActualizar, btnGuardarStats, btnCargarStats);
 
-        Label lblEvaluacion = new Label("Opciones de Evaluación (Rúbrica)");
+        Label lblEvaluacion = new Label("Opciones de Evaluación Comparativa (AVL vs ABB)");
         lblEvaluacion.setStyle("-fx-text-fill: #b3b3b3; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 10 0 0 0;");
         
-        HBox botonesRubrica = new HBox(15);
-        botonesRubrica.setAlignment(Pos.CENTER);
-        Button btnRecorridos = new Button("🌳 Ver Recorridos (In/Pre/Post)");
-        Button btnGraphviz = new Button("🖼️ Mostrar Árbol (Graphviz)");
+        // Fila 1 de Rúbrica: Recorridos
+        HBox fila1Rubrica = new HBox(15);
+        fila1Rubrica.setAlignment(Pos.CENTER);
+        Button btnRecorridosAVL = new Button("🌳 Recorridos AVL");
+        Button btnRecorridosABB = new Button("🌳 Recorridos ABB");
         String estiloBtnRubrica = "-fx-background-color: #3e3e3e; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 5; -fx-padding: 8px 15px;";
-        btnRecorridos.setStyle(estiloBtnRubrica);
-        btnGraphviz.setStyle(estiloBtnRubrica);
-        botonesRubrica.getChildren().addAll(btnRecorridos, btnGraphviz);
+        btnRecorridosAVL.setStyle(estiloBtnRubrica);
+        btnRecorridosABB.setStyle(estiloBtnRubrica);
+        fila1Rubrica.getChildren().addAll(btnRecorridosAVL, btnRecorridosABB);
+
+        // Fila 2 de Rúbrica: Graphviz
+        HBox fila2Rubrica = new HBox(15);
+        fila2Rubrica.setAlignment(Pos.CENTER);
+        Button btnGraphvizAVL = new Button("🖼️ Graphviz AVL");
+        Button btnGraphvizABB = new Button("🖼️ Graphviz ABB");
+        btnGraphvizAVL.setStyle(estiloBtnRubrica);
+        btnGraphvizABB.setStyle(estiloBtnRubrica);
+        fila2Rubrica.getChildren().addAll(btnGraphvizAVL, btnGraphvizABB);
 
         btnActualizar.setOnAction(e -> txtReporte.setText(generarReporteEstadisticas()));
         btnGuardarStats.setOnAction(e -> {
@@ -934,85 +944,113 @@ public class AppGUI extends Application {
             } catch (Exception ex) {}
         });
 
-        btnRecorridos.setOnAction(e -> {
+        // -------------------------------------------------------------
+        // LOGICA DE RECORRIDOS (AVL vs ABB)
+        // -------------------------------------------------------------
+        btnRecorridosAVL.setOnAction(e -> {
             if (arbolBibliotecaCentral == null || arbolBibliotecaCentral.obtenerListaInOrden().isEmpty()) {
-                Alert a = new Alert(Alert.AlertType.WARNING, "Debes cargar la biblioteca para ver los recorridos.");
+                Alert a = new Alert(Alert.AlertType.WARNING, "Debes cargar la biblioteca primero.");
                 a.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
                 a.show();
                 return;
             }
-            String recorridos = arbolBibliotecaCentral.obtenerRecorridosCompletos();
-            Alert a = new Alert(Alert.AlertType.INFORMATION);
-            a.setTitle("Recorridos del Árbol AVL");
-            a.setHeaderText("InOrden, PreOrden y PostOrden de la Biblioteca");
-            
-            TextArea ta = new TextArea(recorridos);
-            ta.setEditable(false);
-            ta.setWrapText(true);
-            ta.setPrefSize(600, 300);
-            ta.setStyle("-fx-control-inner-background: #121212; -fx-text-fill: #1db954; -fx-font-family: 'Consolas';");
-            
-            a.getDialogPane().setContent(ta);
-            a.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
-            a.showAndWait();
+            mostrarVentanaRecorridos("Recorridos del Árbol AVL (Balanceado)", arbolBibliotecaCentral.obtenerRecorridosCompletos());
         });
 
-        // NUEVO LÓGICA PARA RENDERIZAR Y MOSTRAR LA IMAGEN DIRECTAMENTE
-        btnGraphviz.setOnAction(e -> {
-            if (arbolBibliotecaCentral == null || arbolBibliotecaCentral.obtenerListaInOrden().isEmpty()) {
-                Alert a = new Alert(Alert.AlertType.WARNING, "Debes cargar la biblioteca para generar Graphviz.");
+        btnRecorridosABB.setOnAction(e -> {
+            if (arbolNormalCentral == null || arbolNormalCentral.obtenerListaInOrden().isEmpty()) {
+                Alert a = new Alert(Alert.AlertType.WARNING, "Debes cargar la biblioteca primero.");
                 a.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
                 a.show();
                 return;
             }
-            
+            mostrarVentanaRecorridos("Recorridos del Árbol ABB (Desbalanceado)", arbolNormalCentral.obtenerRecorridosCompletos());
+        });
+
+        // -------------------------------------------------------------
+        // LOGICA DE GRAPHVIZ (AVL vs ABB)
+        // -------------------------------------------------------------
+        btnGraphvizAVL.setOnAction(e -> {
+            if (arbolBibliotecaCentral == null || arbolBibliotecaCentral.obtenerListaInOrden().isEmpty()) {
+                Alert a = new Alert(Alert.AlertType.WARNING, "Debes cargar la biblioteca primero.");
+                a.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
+                a.show();
+                return;
+            }
             String rutaDot = "arbol_avl.dot";
             String rutaPng = "arbol_avl.png";
-            
-            // 1. Generar el archivo .dot
             arbolBibliotecaCentral.generarGraphviz(rutaDot);
-            
-            try {
-                // 2. Ejecutar Graphviz internamente en Windows
-                ProcessBuilder pb = new ProcessBuilder("dot", "-Tpng", rutaDot, "-o", rutaPng);
-                Process p = pb.start();
-                p.waitFor(); // Esperar a que termine de dibujar
-                
-                File imgFile = new File(rutaPng);
-                if (imgFile.exists()) {
-                    // 3. Mostrar la imagen en una ventana nueva con Scroll
-                    Stage stageImagen = new Stage();
-                    stageImagen.setTitle("Visualización Gráfica del Árbol AVL");
-                    
-                    ImageView imageView = new ImageView(new Image(imgFile.toURI().toString()));
-                    ScrollPane scrollPane = new ScrollPane(imageView);
-                    scrollPane.setPannable(true);
-                    scrollPane.setStyle("-fx-background-color: #121212;");
-                    
-                    Scene scene = new Scene(scrollPane, 800, 600);
-                    stageImagen.setScene(scene);
-                    stageImagen.show();
-                } else {
-                    throw new Exception("La imagen no se generó.");
-                }
-            } catch (Exception ex) {
-                // Si Graphviz no está instalado, mostrar el mensaje de ayuda
-                Alert a = new Alert(Alert.AlertType.ERROR);
-                a.setTitle("Graphviz No Detectado");
-                a.setHeaderText("Falta la herramienta Graphviz en Windows");
-                a.setContentText("El archivo '" + rutaDot + "' se generó correctamente, pero Java no pudo convertirlo a imagen.\n\n" +
-                                 "Para que esto funcione automáticamente, necesitas instalar Graphviz en tu PC y agregarlo a las variables PATH.\n\n" +
-                                 "Alternativa: Abre el archivo .dot generado y pega su texto en webgraphviz.com para verlo.");
-                a.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
-                a.showAndWait();
-            }
+            renderizarYMostrarGraphviz("Visualización: Árbol AVL Balanceado", rutaDot, rutaPng);
         });
 
-        layout.getChildren().addAll(lblTitulo, txtReporte, botonesStats, lblEvaluacion, botonesRubrica);
+        btnGraphvizABB.setOnAction(e -> {
+            if (arbolNormalCentral == null || arbolNormalCentral.obtenerListaInOrden().isEmpty()) {
+                Alert a = new Alert(Alert.AlertType.WARNING, "Debes cargar la biblioteca primero.");
+                a.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
+                a.show();
+                return;
+            }
+            String rutaDot = "arbol_abb.dot";
+            String rutaPng = "arbol_abb.png";
+            arbolNormalCentral.generarGraphviz(rutaDot);
+            renderizarYMostrarGraphviz("Visualización: Árbol ABB Desbalanceado", rutaDot, rutaPng);
+        });
 
-        Scene escena = new Scene(layout, 600, 580);
+        layout.getChildren().addAll(lblTitulo, txtReporte, botonesStats, lblEvaluacion, fila1Rubrica, fila2Rubrica);
+
+        Scene escena = new Scene(layout, 600, 650);
         ventanaConfig.setScene(escena);
         ventanaConfig.show();
+    }
+
+    // Método auxiliar para evitar repetir código de ventanas de texto
+    private void mostrarVentanaRecorridos(String titulo, String contenido) {
+        Alert a = new Alert(Alert.AlertType.INFORMATION);
+        a.setTitle(titulo);
+        a.setHeaderText("InOrden, PreOrden y PostOrden");
+        TextArea ta = new TextArea(contenido);
+        ta.setEditable(false);
+        ta.setWrapText(true);
+        ta.setPrefSize(600, 300);
+        ta.setStyle("-fx-control-inner-background: #121212; -fx-text-fill: #1db954; -fx-font-family: 'Consolas';");
+        a.getDialogPane().setContent(ta);
+        a.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
+        a.showAndWait();
+    }
+
+    // Método auxiliar para evitar repetir código de ejecución de Graphviz
+    private void renderizarYMostrarGraphviz(String tituloVentana, String rutaDot, String rutaPng) {
+        try {
+            ProcessBuilder pb = new ProcessBuilder("dot", "-Tpng", rutaDot, "-o", rutaPng);
+            Process p = pb.start();
+            p.waitFor(); 
+            
+            File imgFile = new File(rutaPng);
+            if (imgFile.exists()) {
+                Stage stageImagen = new Stage();
+                stageImagen.setTitle(tituloVentana);
+                
+                ImageView imageView = new ImageView(new Image(imgFile.toURI().toString()));
+                ScrollPane scrollPane = new ScrollPane(imageView);
+                scrollPane.setPannable(true);
+                scrollPane.setStyle("-fx-background-color: #121212;");
+                
+                Scene scene = new Scene(scrollPane, 800, 600);
+                stageImagen.setScene(scene);
+                stageImagen.show();
+            } else {
+                throw new Exception("La imagen no se generó.");
+            }
+        } catch (Exception ex) {
+            Alert a = new Alert(Alert.AlertType.ERROR);
+            a.setTitle("Graphviz No Detectado");
+            a.setHeaderText("Falta la herramienta Graphviz en Windows");
+            a.setContentText("El archivo '" + rutaDot + "' se generó correctamente, pero Java no pudo convertirlo a imagen.\n\n" +
+                             "Para que esto funcione automáticamente, necesitas instalar Graphviz en tu PC y agregarlo a las variables PATH.\n\n" +
+                             "Alternativa: Abre el archivo .dot generado y pega su texto en webgraphviz.com para verlo.");
+            a.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
+            a.showAndWait();
+        }
     }
 
     private String generarReporteEstadisticas() {

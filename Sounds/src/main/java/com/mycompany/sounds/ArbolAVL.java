@@ -94,9 +94,6 @@ public class ArbolAVL {
         return nodo;
     }   
 
-    // =========================================================================
-    // --- NUEVO: ELIMINACIÓN AVL (CON RE-BALANCEO Y ROTACIONES MATEMÁTICAS) ---
-    // =========================================================================
     public void eliminar(String nombre) {
         raiz = eliminarRecursivo(raiz, nombre);
     }
@@ -124,7 +121,7 @@ public class ArbolAVL {
                     nodo = temp;
                 }
             } else {
-                // Nodo con dos hijos: buscar el sucesor
+
                 NodoArbol temp = encontrarMinimo(nodo.getDerecho());
                 nodo.setCancion(temp.getCancion());
                 nodo.setDerecho(eliminarRecursivo(nodo.getDerecho(), temp.getCancion().getNombre()));
@@ -194,9 +191,6 @@ public class ArbolAVL {
         }
     }
 
-    // =========================================================================
-    // --- NUEVO: RECORRIDOS (INORDEN, PREORDEN, POSTORDEN) PARA LA RÚBRICA ---
-    // =========================================================================
     public String obtenerRecorridosCompletos() {
         StringBuilder sb = new StringBuilder();
         sb.append("PRE-ORDEN (Raíz, Izq, Der):\n");
@@ -232,9 +226,6 @@ public class ArbolAVL {
         }
     }
 
-    // =========================================================================
-    // --- NUEVO: GENERADOR DE GRAPHVIZ (5 PUNTOS DE RÚBRICA) ---
-    // =========================================================================
     public void generarGraphviz(String rutaArchivo) {
         StringBuilder dot = new StringBuilder();
         dot.append("digraph ArbolAVL {\n");

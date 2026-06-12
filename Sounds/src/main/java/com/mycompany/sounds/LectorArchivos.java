@@ -8,16 +8,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class LectorArchivos {
-
     private List<Cancion> cancionesCargadas;
 
     public LectorArchivos() {
         this.cancionesCargadas = new ArrayList<>();
     }
-
-    /**
-     * Método recursivo para leer carpetas y subcarpetas.
-     */
+    // metodo recursivo para las carpetas y subcarpetas
     public void leerCarpetaRecursivamente(String rutaDirectorio) {
         File directorio = new File(rutaDirectorio);
 
@@ -38,52 +34,37 @@ public class LectorArchivos {
             System.out.println("La ruta no existe o no es un directorio válido.");
         }
     }
-
-    /**
-     * Extrae metadatos extendidos e imágenes usando la librería mp3agic.
-     */
     private Cancion extraerMetadatos(File archivo) {
         Cancion cancion = new Cancion();
-        
-        // Atributos base por defecto (si el archivo no tiene etiquetas metidas)
-        cancion.setNombre(archivo.getName().replace(".mp3", "")); 
+            cancion.setNombre(archivo.getName().replace(".mp3", "")); 
         cancion.setRuta(archivo.getAbsolutePath());
         cancion.setTamano(archivo.length());
         cancion.setArtista("Artista Desconocido");
         cancion.setAlbum("Álbum Desconocido");
         cancion.setGenero("Desconocido");
         cancion.setAnio(0);
-
         try {
-            // Inicializamos el lector de mp3agic
-            Mp3File mp3File = new Mp3File(archivo.getAbsolutePath());
+               Mp3File mp3File = new Mp3File(archivo.getAbsolutePath());
             cancion.setDuracion(mp3File.getLengthInSeconds());
-
-            // 1. Intentamos extraer de ID3v2 (Metadatos modernos con soporte de imagen)
             if (mp3File.hasId3v2Tag()) {
                 ID3v2 tagv2 = mp3File.getId3v2Tag();
-                
-                if (tagv2.getTitle() != null && !tagv2.getTitle().trim().isEmpty()) cancion.setNombre(tagv2.getTitle().trim());
+                                if (tagv2.getTitle() != null && !tagv2.getTitle().trim().isEmpty()) cancion.setNombre(tagv2.getTitle().trim());
                 if (tagv2.getArtist() != null && !tagv2.getArtist().trim().isEmpty()) cancion.setArtista(tagv2.getArtist().trim());
                 if (tagv2.getAlbum() != null && !tagv2.getAlbum().trim().isEmpty()) cancion.setAlbum(tagv2.getAlbum().trim());
                 if (tagv2.getGenreDescription() != null && !tagv2.getGenreDescription().trim().isEmpty()) cancion.setGenero(tagv2.getGenreDescription().trim());
-                
-                try {
+                                try {
                     if (tagv2.getYear() != null && !tagv2.getYear().trim().isEmpty()) {
                         cancion.setAnio(Integer.parseInt(tagv2.getYear().trim()));
                     }
                 } catch (NumberFormatException e) {
                     cancion.setAnio(0);
                 }
-
-                // EXTRAER CARÁTULA: Obtenemos los bytes de la imagen APIC
-                byte[] bytesImagen = tagv2.getAlbumImage();
+                        byte[] bytesImagen = tagv2.getAlbumImage();
                 if (bytesImagen != null) {
                     cancion.setImagenCaratula(bytesImagen);
                 }
-                
-            // 2. Si no tiene ID3v2, intentamos con la etiqueta clásica ID3v1 (Sin imágenes)
-            } else if (mp3File.hasId3v1Tag()) {
+                                 
+                      } else if (mp3File.hasId3v1Tag()) {
                 ID3v1 tagv1 = mp3File.getId3v1Tag();
                 if (tagv1.getTitle() != null && !tagv1.getTitle().trim().isEmpty()) cancion.setNombre(tagv1.getTitle().trim());
                 if (tagv1.getArtist() != null && !tagv1.getArtist().trim().isEmpty()) cancion.setArtista(tagv1.getArtist().trim());
@@ -99,10 +80,8 @@ public class LectorArchivos {
         } catch (Exception e) {
             System.err.println("Error leyendo metadatos de " + archivo.getName() + ": " + e.getMessage());
         }
-
         return cancion;
     }
-
     public List<Cancion> getCancionesCargadas() {
         return cancionesCargadas;
     }

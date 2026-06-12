@@ -9,9 +9,6 @@ public class Cancion {
     private long duracion;     
     private long tamano;       
     private String ruta;   
-    
-    
-    // NUEVO: Atributo para almacenar los bytes de la carátula
     private byte[] imagenCaratula;
 
     public Cancion(String nombre, String artista, String album, String genero, int anio, long duracion, long tamano, String ruta) {
@@ -25,10 +22,9 @@ public class Cancion {
         this.ruta = ruta;
         this.imagenCaratula = null;
     }
-
     public Cancion() {
     }
-   
+  
     public String getNombre() { return nombre; }
     public void setNombre(String nombre) { this.nombre = nombre; }
     public String getArtista() { return artist; }
@@ -45,12 +41,8 @@ public class Cancion {
     public void setTamano(long tamano) { this.tamano = tamano; }
     public String getRuta() { return ruta; }
     public void setRuta(String ruta) { this.ruta = ruta; }
-
-    
-    // NUEVO: Métodos de acceso para la carátula
     public byte[] getImagenCaratula() { return imagenCaratula; }
     public void setImagenCaratula(byte[] imagenCaratula) { this.imagenCaratula = imagenCaratula; }
-
     @Override
     public String toString() {
         return "Cancion{" +

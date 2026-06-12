@@ -1329,3 +1329,4 @@ public class AppGUI extends Application {
     private String formatearTiempo(int seg) { return String.format("%d:%02d", seg / 60, seg % 60); }
     public static void main(String[] args) { launch(args); }
 }
+// hasta aqui llegamos

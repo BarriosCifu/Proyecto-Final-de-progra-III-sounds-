@@ -536,22 +536,28 @@ public class AppGUI extends Application {
                 TextField fieldArtista = new TextField(seleccionada.getArtista());
                 TextField fieldAlbum = new TextField(seleccionada.getAlbum());
                 TextField fieldGenero = new TextField(seleccionada.getGenero() != null ? seleccionada.getGenero() : "Desconocido");
+                
+                String anioActual = seleccionada.getAnio() == 0 ? "" : String.valueOf(seleccionada.getAnio());
+                TextField fieldAnio = new TextField(anioActual);
 
                 String tfStyle = "-fx-background-color: #3e3e3e; -fx-text-fill: white;";
                 fieldNombre.setStyle(tfStyle);
                 fieldArtista.setStyle(tfStyle);
                 fieldAlbum.setStyle(tfStyle);
                 fieldGenero.setStyle(tfStyle);
+                fieldAnio.setStyle(tfStyle);
 
                 Label lbl1 = new Label("Nombre:"); lbl1.setStyle("-fx-text-fill: white;");
                 Label lbl2 = new Label("Artista:"); lbl2.setStyle("-fx-text-fill: white;");
                 Label lbl3 = new Label("Álbum:"); lbl3.setStyle("-fx-text-fill: white;");
                 Label lbl4 = new Label("Género:"); lbl4.setStyle("-fx-text-fill: white;");
+                Label lbl5 = new Label("Año:"); lbl5.setStyle("-fx-text-fill: white;");
 
                 grid.add(lbl1, 0, 0); grid.add(fieldNombre, 1, 0);
                 grid.add(lbl2, 0, 1); grid.add(fieldArtista, 1, 1);
                 grid.add(lbl3, 0, 2); grid.add(fieldAlbum, 1, 2);
                 grid.add(lbl4, 0, 3); grid.add(fieldGenero, 1, 3);
+                grid.add(lbl5, 0, 4); grid.add(fieldAnio, 1, 4);
 
                 dialog.getDialogPane().setContent(grid);
 
@@ -563,6 +569,17 @@ public class AppGUI extends Application {
                         seleccionada.setArtista(fieldArtista.getText().trim());
                         seleccionada.setAlbum(fieldAlbum.getText().trim());
                         seleccionada.setGenero(fieldGenero.getText().trim());
+
+                        try {
+                            String textoAnio = fieldAnio.getText().trim();
+                            if (textoAnio.isEmpty()) {
+                                seleccionada.setAnio(0);
+                            } else {
+                                seleccionada.setAnio(Integer.parseInt(textoAnio));
+                            }
+                        } catch (NumberFormatException ex) {
+                            seleccionada.setAnio(0);
+                        }
 
                         if (!viejoNombre.equals(nuevoNombre)) {
                             seleccionada.setNombre(nuevoNombre);

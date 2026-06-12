@@ -34,6 +34,7 @@ import javafx.scene.control.Slider;
 import javafx.scene.control.TableCell;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
+import javafx.scene.control.TextArea; // IMPORTANTE PARA EL NUEVO PANEL
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.cell.PropertyValueFactory;
@@ -88,6 +89,13 @@ public class AppGUI extends Application {
     private Label tituloCentral;
     private Set<String> cancionesFavoritas = new HashSet<>();
     private boolean modoAleatorio = false;
+
+    // MOTORES DE RECOLECCIÓN DE DATOS PARA ESTADÍSTICAS
+    private Map<String, Integer> contadorCanciones = new HashMap<>();
+    private Map<String, Integer> contadorArtistas = new HashMap<>();
+    private Map<String, Integer> contadorGeneros = new HashMap<>();
+    private List<Double> tiemposBusquedaAVL = new ArrayList<>();
+    private List<Double> tiemposBusquedaABB = new ArrayList<>();
 
     @Override
     public void start(Stage escenarioPrincipal) {
@@ -171,7 +179,8 @@ public class AppGUI extends Application {
                     for (Map.Entry<String, ArbolBinarioBusqueda> entry : mapaPlaylists.entrySet()) {
                         String nombreLista = entry.getKey();
                         for (Cancion c : entry.getValue().obtenerListaInOrden()) {
-                            String datosPlanos = nombreLista + "||" + c.getNombre() + "||" + c.getArtista() + "||" + c.getAlbum() + "||" + c.getRuta();
+                            String genero = c.getGenero() != null ? c.getGenero() : "Desconocido";
+                            String datosPlanos = nombreLista + "||" + c.getNombre() + "||" + c.getArtista() + "||" + c.getAlbum() + "||" + genero + "||" + c.getRuta();
                             writer.println(GestorEncriptacion.cifrar(datosPlanos));
                         }
                     }
@@ -198,9 +207,21 @@ public class AppGUI extends Application {
                 while ((lineaCifrada = reader.readLine()) != null) {
                     String datosPlanos = GestorEncriptacion.descifrar(lineaCifrada);
                     String[] partes = datosPlanos.split("\\|\\|");
-                    if (partes.length == 5) {
+                    
+                    if (partes.length >= 5) {
                         Cancion c = new Cancion();
-                        c.setNombre(partes[1]); c.setArtista(partes[2]); c.setAlbum(partes[3]); c.setRuta(partes[4]);
+                        c.setNombre(partes[1]); 
+                        c.setArtista(partes[2]); 
+                        c.setAlbum(partes[3]);
+                        
+                        if (partes.length == 6) {
+                            c.setGenero(partes[4]);
+                            c.setRuta(partes[5]);
+                        } else {
+                            c.setGenero("Desconocido");
+                            c.setRuta(partes[4]);
+                        }
+                        
                         cancionesCargadas.add(c);
                         nombresCargados.add(partes[0]);
                     }
@@ -260,19 +281,13 @@ public class AppGUI extends Application {
         Region espaciadorBusqueda = new Region();
         HBox.setHgrow(espaciadorBusqueda, Priority.ALWAYS);
 
+        // BOTÓN CONFIGURACIÓN AHORA ABRE EL PANEL
         Button btnConfiguracion = new Button("⚙ Ajustes");
         btnConfiguracion.setStyle("-fx-background-color: #282828; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 5; -fx-padding: 5 10 5 10;");
         btnConfiguracion.setOnMouseEntered(e -> btnConfiguracion.setStyle("-fx-background-color: #3e3e3e; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 5; -fx-padding: 5 10 5 10;"));
         btnConfiguracion.setOnMouseExited(e -> btnConfiguracion.setStyle("-fx-background-color: #282828; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 5; -fx-padding: 5 10 5 10;"));
         
-        btnConfiguracion.setOnAction(e -> {
-            Alert alertaConfig = new Alert(Alert.AlertType.INFORMATION);
-            alertaConfig.setTitle("Configuraciones");
-            alertaConfig.setHeaderText("Ajustes del Reproductor");
-            alertaConfig.setContentText("Aquí alojaremos las configuraciones de personalización del reproductor próximamente.");
-            alertaConfig.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
-            alertaConfig.showAndWait();
-        });
+        btnConfiguracion.setOnAction(e -> abrirPanelConfiguraciones());
 
         barraBusqueda.getChildren().addAll(txtBuscar, btnLimpiar, lblTiempoAVL, lblTiempoABB, espaciadorBusqueda, btnConfiguracion);
 
@@ -300,6 +315,11 @@ public class AppGUI extends Application {
                     arbolNormalCentral.buscarPorFiltro(valorNuevo);
                     long finABB = System.nanoTime();
                     double msABB = (finABB - inicioABB) / 1_000_000.0;
+                    
+                    if (!valorNuevo.trim().isEmpty()) {
+                        tiemposBusquedaAVL.add(msAVL);
+                        tiemposBusquedaABB.add(msABB);
+                    }
                     
                     lblTiempoAVL.setText(String.format("⏱ AVL: %.4f ms", msAVL));
                     lblTiempoABB.setText(String.format("⏱ ABB: %.4f ms", msABB));
@@ -369,12 +389,17 @@ public class AppGUI extends Application {
 
         TableColumn<Cancion, String> colNombre = new TableColumn<>("Título");
         colNombre.setCellValueFactory(new PropertyValueFactory<>("nombre"));
+        
         TableColumn<Cancion, String> colArtista = new TableColumn<>("Artista");
         colArtista.setCellValueFactory(new PropertyValueFactory<>("artista"));
+        
         TableColumn<Cancion, String> colAlbum = new TableColumn<>("Álbum");
         colAlbum.setCellValueFactory(new PropertyValueFactory<>("album"));
+
+        TableColumn<Cancion, String> colGenero = new TableColumn<>("Género");
+        colGenero.setCellValueFactory(new PropertyValueFactory<>("genero"));
         
-        tablaCanciones.getColumns().addAll(colFavorita, colNombre, colArtista, colAlbum);
+        tablaCanciones.getColumns().addAll(colFavorita, colNombre, colArtista, colAlbum, colGenero);
         VBox.setVgrow(tablaCanciones, Priority.ALWAYS);
         
         ContextMenu menuContextual = new ContextMenu();
@@ -536,12 +561,11 @@ public class AppGUI extends Application {
                 lblTiempoActual.setText(formatearTiempo((int) (t * p)));
                 lblTiempoTotal.setText(formatearTiempo(t));
                 
-                // NUEVO: Verificamos si la canción terminó y si debe hacer loop de 1 canción
                 if (p >= 0.99 && estaReproduciendo) {
                     if (modoRepeticion && tituloCentral.getText().equals("Biblioteca Principal") && listaObservableCola.isEmpty()) {
-                        reproducirActual(); // Loop 1 canción
+                        reproducirActual(); 
                     } else {
-                        btnSiguiente.fire(); // Comportamiento normal o Playlist
+                        btnSiguiente.fire(); 
                     }
                 }
             }
@@ -674,7 +698,6 @@ public class AppGUI extends Application {
                     btnPlayPausa.setText("⏸"); 
                     estaReproduciendo = true;
                 } else if (modoRepeticion && !tituloCentral.getText().equals("Biblioteca Principal") && !tablaCanciones.getItems().isEmpty()) {
-                    // LOOP ALL: Válido únicamente para las playlists
                     tablaCanciones.getSelectionModel().select(0);
                     cancionActual = tablaCanciones.getSelectionModel().getSelectedItem(); 
                     reproducirActual(); 
@@ -725,7 +748,7 @@ public class AppGUI extends Application {
         
         try {
             File archivoLogo = new File("default"); 
-            if (!archivoLogo.exists()) archivoLogo = new File("Sounds.png"); 
+            if (!archivoLogo.exists()) archivoLogo = new File("default.png"); 
             if (archivoLogo.exists()) {
                 escenarioPrincipal.getIcons().add(new Image(archivoLogo.toURI().toString()));
             }
@@ -734,6 +757,176 @@ public class AppGUI extends Application {
         }
 
         escenarioPrincipal.show();
+    }
+
+    // --- NUEVO PANEL DE CONFIGURACIONES Y ESTADÍSTICAS ---
+    private void abrirPanelConfiguraciones() {
+        Stage ventanaConfig = new Stage();
+        ventanaConfig.setTitle("⚙ Ajustes y Estadísticas");
+
+        VBox layout = new VBox(15);
+        layout.setStyle("-fx-background-color: #121212; -fx-padding: 20px;");
+        layout.setAlignment(Pos.CENTER);
+
+        Label lblTitulo = new Label("Módulo de Estadísticas y Rendimiento");
+        lblTitulo.setStyle("-fx-text-fill: white; -fx-font-size: 18px; -fx-font-weight: bold;");
+
+        TextArea txtReporte = new TextArea();
+        txtReporte.setEditable(false);
+        txtReporte.setPrefSize(500, 350);
+        txtReporte.setStyle("-fx-control-inner-background: #282828; -fx-text-fill: white; -fx-font-family: 'Consolas'; -fx-font-size: 13px;");
+        txtReporte.setText(generarReporteEstadisticas());
+
+        HBox botones = new HBox(15);
+        botones.setAlignment(Pos.CENTER);
+
+        Button btnActualizar = new Button("🔄 Actualizar");
+        Button btnGuardarStats = new Button("🔒 Guardar (Cifrado)");
+        Button btnCargarStats = new Button("🔓 Cargar (Descifrado)");
+
+        String estiloBtn = "-fx-background-color: #1db954; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 5; -fx-padding: 8px 15px;";
+        btnActualizar.setStyle(estiloBtn);
+        btnGuardarStats.setStyle(estiloBtn);
+        btnCargarStats.setStyle(estiloBtn);
+
+        btnActualizar.setOnAction(e -> txtReporte.setText(generarReporteEstadisticas()));
+
+        btnGuardarStats.setOnAction(e -> {
+            if(txtReporte.getText().trim().isEmpty() || txtReporte.getText().contains("No hay canciones")) {
+                 Alert a = new Alert(Alert.AlertType.WARNING, "No hay datos válidos para guardar.");
+                 a.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
+                 a.show();
+                 return;
+            }
+            try (PrintWriter writer = new PrintWriter(new FileWriter("estadisticas_cifradas.txt"))) {
+                String[] lineas = txtReporte.getText().split("\n");
+                for (String linea : lineas) {
+                    writer.println(GestorEncriptacion.cifrar(linea));
+                }
+                Alert a = new Alert(Alert.AlertType.INFORMATION, "El reporte estadístico ha sido encriptado y guardado exitosamente en 'estadisticas_cifradas.txt'.");
+                a.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
+                a.show();
+            } catch (Exception ex) {
+                System.out.println("Error al guardar stats: " + ex.getMessage());
+            }
+        });
+
+        btnCargarStats.setOnAction(e -> {
+            File file = new File("estadisticas_cifradas.txt");
+            if (!file.exists()) {
+                Alert a = new Alert(Alert.AlertType.WARNING, "No se encontró ningún archivo 'estadisticas_cifradas.txt' en el sistema.");
+                a.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
+                a.show();
+                return;
+            }
+            try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+                StringBuilder sb = new StringBuilder();
+                String lineaCifrada;
+                while ((lineaCifrada = reader.readLine()) != null) {
+                    sb.append(GestorEncriptacion.descifrar(lineaCifrada)).append("\n");
+                }
+                txtReporte.setText(sb.toString());
+                Alert a = new Alert(Alert.AlertType.INFORMATION, "El reporte estadístico ha sido desencriptado y cargado en pantalla.");
+                a.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
+                a.show();
+            } catch (Exception ex) {
+                System.out.println("Error al cargar stats: " + ex.getMessage());
+            }
+        });
+
+        botones.getChildren().addAll(btnActualizar, btnGuardarStats, btnCargarStats);
+        layout.getChildren().addAll(lblTitulo, txtReporte, botones);
+
+        Scene escena = new Scene(layout, 550, 480);
+        ventanaConfig.setScene(escena);
+        
+        try {
+            File archivoLogo = new File("default"); 
+            if (!archivoLogo.exists()) archivoLogo = new File("default.png"); 
+            if (archivoLogo.exists()) {
+                ventanaConfig.getIcons().add(new Image(archivoLogo.toURI().toString()));
+            }
+        } catch (Exception ex) {}
+
+        ventanaConfig.show();
+    }
+
+    private String generarReporteEstadisticas() {
+        if (listaOriginalCanciones == null || listaOriginalCanciones.isEmpty()) {
+            return "No hay canciones cargadas en la Biblioteca para analizar.";
+        }
+
+        String topCancion = contadorCanciones.entrySet().stream().max(Map.Entry.comparingByValue()).map(Map.Entry::getKey).orElse("Aún sin datos");
+        String topArtista = contadorArtistas.entrySet().stream().max(Map.Entry.comparingByValue()).map(Map.Entry::getKey).orElse("Aún sin datos");
+        String topGenero = contadorGeneros.entrySet().stream().max(Map.Entry.comparingByValue()).map(Map.Entry::getKey).orElse("Aún sin datos");
+        
+        String topPlaylist = "Ninguna";
+        int maxPlaylistSize = 0;
+        for (Map.Entry<String, ArbolBinarioBusqueda> entry : mapaPlaylists.entrySet()) {
+            int size = entry.getValue().obtenerListaInOrden().size();
+            if (size > maxPlaylistSize) {
+                maxPlaylistSize = size;
+                topPlaylist = entry.getKey() + " (" + size + " pistas)";
+            }
+        }
+
+        long tamanoTotalBytes = 0;
+        Map<String, List<Cancion>> cancionesPorNombre = new HashMap<>();
+        
+        for (Cancion c : listaOriginalCanciones) {
+            File f = new File(c.getRuta());
+            if (f.exists()) {
+                tamanoTotalBytes += f.length();
+            }
+            cancionesPorNombre.computeIfAbsent(c.getNombre().toLowerCase(), k -> new ArrayList<>()).add(c);
+        }
+        
+        double tamanoMB = tamanoTotalBytes / (1024.0 * 1024.0);
+        double minutosTotalesAprox = tamanoMB; 
+        double promedioDuracionMinutos = minutosTotalesAprox / listaOriginalCanciones.size();
+        int minPromedio = (int) promedioDuracionMinutos;
+        int segPromedio = (int) ((promedioDuracionMinutos - minPromedio) * 60);
+        
+        int duplicadosCount = 0;
+        StringBuilder duplicadosNombres = new StringBuilder();
+        for (Map.Entry<String, List<Cancion>> entry : cancionesPorNombre.entrySet()) {
+            if (entry.getValue().size() > 1) {
+                duplicadosCount += (entry.getValue().size() - 1);
+                double pesoDuplicadoMB = 0;
+                for(int i = 1; i < entry.getValue().size(); i++) {
+                     File f = new File(entry.getValue().get(i).getRuta());
+                     if (f.exists()) pesoDuplicadoMB += f.length() / (1024.0 * 1024.0);
+                }
+                duplicadosNombres.append("   - ").append(entry.getValue().get(0).getNombre())
+                                 .append(" (").append(entry.getValue().size()).append(" copias, desperdicia ")
+                                 .append(String.format("%.2f MB", pesoDuplicadoMB)).append(")\n");
+            }
+        }
+
+        double avgAVL = tiemposBusquedaAVL.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+        double avgABB = tiemposBusquedaABB.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+
+        String reporte = "📊 ESTADÍSTICAS GLOBALES DEL SISTEMA\n" +
+                "──────────────────────────────────────────\n" +
+                "🎵 Canción más reproducida: " + topCancion + "\n" +
+                "🎤 Artista más escuchado: " + topArtista + "\n" +
+                "🎸 Género más frecuente: " + topGenero + "\n" +
+                "🗂️ Playlist más grande: " + topPlaylist + "\n" +
+                "⏳ Promedio de duración x pista: " + String.format("%d:%02d min", minPromedio, segPromedio) + "\n\n" +
+                "⚙️ RENDIMIENTO DE ESTRUCTURAS O(log n)\n" +
+                "──────────────────────────────────────────\n" +
+                "⏱️ Tiempo Promedio Búsqueda Árbol AVL: " + String.format("%.4f ms", avgAVL) + "\n" +
+                "⏱️ Tiempo Promedio Búsqueda Árbol Binario: " + String.format("%.4f ms", avgABB) + "\n\n" +
+                "💾 ANÁLISIS DE ALMACENAMIENTO\n" +
+                "──────────────────────────────────────────\n" +
+                "📦 Tamaño total de la biblioteca: " + String.format("%.2f MB", tamanoMB) + "\n" +
+                "⚠️ Total de archivos duplicados: " + duplicadosCount + "\n";
+        
+        if (duplicadosCount > 0) {
+            reporte += "Lista de repeticiones encontradas en memoria:\n" + duplicadosNombres.toString();
+        }
+
+        return reporte;
     }
 
     private void actualizarCaratulaYMetadatos() {
@@ -763,6 +956,11 @@ public class AppGUI extends Application {
 
     private void reproducirActual() { 
         if (cancionActual != null) { 
+            contadorCanciones.put(cancionActual.getNombre(), contadorCanciones.getOrDefault(cancionActual.getNombre(), 0) + 1);
+            contadorArtistas.put(cancionActual.getArtista(), contadorArtistas.getOrDefault(cancionActual.getArtista(), 0) + 1);
+            String gen = cancionActual.getGenero() != null ? cancionActual.getGenero() : "Desconocido";
+            contadorGeneros.put(gen, contadorGeneros.getOrDefault(gen, 0) + 1);
+
             reproductor.detener(); 
             reproductor.reproducir(cancionActual.getRuta()); 
             reproductor.setVolumen(sliderVolumen.getValue());

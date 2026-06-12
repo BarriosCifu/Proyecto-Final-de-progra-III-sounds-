@@ -8,7 +8,8 @@ public class Cancion {
     private int anio;          
     private long duracion;     
     private long tamano;       
-    private String ruta;       
+    private String ruta;   
+    
     
     // NUEVO: Atributo para almacenar los bytes de la carátula
     private byte[] imagenCaratula;
@@ -44,6 +45,7 @@ public class Cancion {
     public void setTamano(long tamano) { this.tamano = tamano; }
     public String getRuta() { return ruta; }
     public void setRuta(String ruta) { this.ruta = ruta; }
+
     
     // NUEVO: Métodos de acceso para la carátula
     public byte[] getImagenCaratula() { return imagenCaratula; }

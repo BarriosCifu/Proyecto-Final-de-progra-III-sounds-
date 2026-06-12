@@ -33,6 +33,7 @@ import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 import javafx.scene.control.MenuItem;
+import javafx.scene.control.ScrollPane; // NUEVO IMPORT PARA LA IMAGEN
 import javafx.scene.control.SeparatorMenuItem;
 import javafx.scene.control.Slider;
 import javafx.scene.control.TableCell;
@@ -549,7 +550,9 @@ public class AppGUI extends Application {
 
         btnQuitarCola.setOnAction(e -> {
             int indice = tablaCola.getSelectionModel().getSelectedIndex();
-            if (indice >= 0) { listaObservableCola.remove(indice); }
+            if (indice >= 0) {
+                listaObservableCola.remove(indice);
+            }
         });
 
         btnSubirCola.setOnAction(e -> {
@@ -851,7 +854,7 @@ public class AppGUI extends Application {
         return c;
     }
 
-    // --- PANEL DE AJUSTES CON OPCIONES DE RÚBRICA (RECORRIDOS Y GRAPHVIZ) ---
+    // --- PANEL DE AJUSTES CON RÚBRICA Y VISUALIZADOR DE GRAPHVIZ NATIVO ---
     private void abrirPanelConfiguraciones() {
         Stage ventanaConfig = new Stage();
         ventanaConfig.setTitle("⚙ Ajustes y Estadísticas");
@@ -869,7 +872,6 @@ public class AppGUI extends Application {
         txtReporte.setStyle("-fx-control-inner-background: #282828; -fx-text-fill: white; -fx-font-family: 'Consolas'; -fx-font-size: 13px;");
         txtReporte.setText(generarReporteEstadisticas());
 
-        // Fila 1: Opciones de Estadísticas
         HBox botonesStats = new HBox(15);
         botonesStats.setAlignment(Pos.CENTER);
         Button btnActualizar = new Button("🔄 Actualizar");
@@ -881,20 +883,18 @@ public class AppGUI extends Application {
         btnCargarStats.setStyle(estiloBtn);
         botonesStats.getChildren().addAll(btnActualizar, btnGuardarStats, btnCargarStats);
 
-        // Fila 2: Opciones de Evaluación (Rúbrica)
         Label lblEvaluacion = new Label("Opciones de Evaluación (Rúbrica)");
         lblEvaluacion.setStyle("-fx-text-fill: #b3b3b3; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 10 0 0 0;");
         
         HBox botonesRubrica = new HBox(15);
         botonesRubrica.setAlignment(Pos.CENTER);
         Button btnRecorridos = new Button("🌳 Ver Recorridos (In/Pre/Post)");
-        Button btnGraphviz = new Button("🖼️ Generar Graphviz (.dot)");
+        Button btnGraphviz = new Button("🖼️ Mostrar Árbol (Graphviz)");
         String estiloBtnRubrica = "-fx-background-color: #3e3e3e; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand; -fx-background-radius: 5; -fx-padding: 8px 15px;";
         btnRecorridos.setStyle(estiloBtnRubrica);
         btnGraphviz.setStyle(estiloBtnRubrica);
         botonesRubrica.getChildren().addAll(btnRecorridos, btnGraphviz);
 
-        // Funciones de botones Stats
         btnActualizar.setOnAction(e -> txtReporte.setText(generarReporteEstadisticas()));
         btnGuardarStats.setOnAction(e -> {
             if(txtReporte.getText().trim().isEmpty() || txtReporte.getText().contains("No hay canciones")) {
@@ -934,7 +934,6 @@ public class AppGUI extends Application {
             } catch (Exception ex) {}
         });
 
-        // Funciones de botones Rúbrica
         btnRecorridos.setOnAction(e -> {
             if (arbolBibliotecaCentral == null || arbolBibliotecaCentral.obtenerListaInOrden().isEmpty()) {
                 Alert a = new Alert(Alert.AlertType.WARNING, "Debes cargar la biblioteca para ver los recorridos.");
@@ -958,6 +957,7 @@ public class AppGUI extends Application {
             a.showAndWait();
         });
 
+        // NUEVO LÓGICA PARA RENDERIZAR Y MOSTRAR LA IMAGEN DIRECTAMENTE
         btnGraphviz.setOnAction(e -> {
             if (arbolBibliotecaCentral == null || arbolBibliotecaCentral.obtenerListaInOrden().isEmpty()) {
                 Alert a = new Alert(Alert.AlertType.WARNING, "Debes cargar la biblioteca para generar Graphviz.");
@@ -965,19 +965,47 @@ public class AppGUI extends Application {
                 a.show();
                 return;
             }
+            
             String rutaDot = "arbol_avl.dot";
+            String rutaPng = "arbol_avl.png";
+            
+            // 1. Generar el archivo .dot
             arbolBibliotecaCentral.generarGraphviz(rutaDot);
             
-            Alert a = new Alert(Alert.AlertType.INFORMATION);
-            a.setTitle("Graphviz Generado");
-            a.setHeaderText("Archivo DOT creado con éxito en la raíz del proyecto");
-            a.setContentText("Se ha creado el archivo: " + rutaDot + "\n\n" +
-                             "OPCIONES PARA VISUALIZAR EL ÁRBOL:\n" +
-                             "1. Abre el archivo .dot con el Bloc de notas, copia el texto y pégalo en la web: http://www.webgraphviz.com/\n" +
-                             "2. O bien, si tienes Graphviz instalado, abre tu consola CMD y escribe:\n" +
-                             "   dot -Tpng " + rutaDot + " -o arbol_avl.png");
-            a.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
-            a.showAndWait();
+            try {
+                // 2. Ejecutar Graphviz internamente en Windows
+                ProcessBuilder pb = new ProcessBuilder("dot", "-Tpng", rutaDot, "-o", rutaPng);
+                Process p = pb.start();
+                p.waitFor(); // Esperar a que termine de dibujar
+                
+                File imgFile = new File(rutaPng);
+                if (imgFile.exists()) {
+                    // 3. Mostrar la imagen en una ventana nueva con Scroll
+                    Stage stageImagen = new Stage();
+                    stageImagen.setTitle("Visualización Gráfica del Árbol AVL");
+                    
+                    ImageView imageView = new ImageView(new Image(imgFile.toURI().toString()));
+                    ScrollPane scrollPane = new ScrollPane(imageView);
+                    scrollPane.setPannable(true);
+                    scrollPane.setStyle("-fx-background-color: #121212;");
+                    
+                    Scene scene = new Scene(scrollPane, 800, 600);
+                    stageImagen.setScene(scene);
+                    stageImagen.show();
+                } else {
+                    throw new Exception("La imagen no se generó.");
+                }
+            } catch (Exception ex) {
+                // Si Graphviz no está instalado, mostrar el mensaje de ayuda
+                Alert a = new Alert(Alert.AlertType.ERROR);
+                a.setTitle("Graphviz No Detectado");
+                a.setHeaderText("Falta la herramienta Graphviz en Windows");
+                a.setContentText("El archivo '" + rutaDot + "' se generó correctamente, pero Java no pudo convertirlo a imagen.\n\n" +
+                                 "Para que esto funcione automáticamente, necesitas instalar Graphviz en tu PC y agregarlo a las variables PATH.\n\n" +
+                                 "Alternativa: Abre el archivo .dot generado y pega su texto en webgraphviz.com para verlo.");
+                a.getDialogPane().setStyle("-fx-base: #282828; -fx-text-fill: white;");
+                a.showAndWait();
+            }
         });
 
         layout.getChildren().addAll(lblTitulo, txtReporte, botonesStats, lblEvaluacion, botonesRubrica);

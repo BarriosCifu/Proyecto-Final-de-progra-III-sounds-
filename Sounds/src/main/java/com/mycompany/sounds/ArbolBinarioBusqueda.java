@@ -7,7 +7,6 @@ import java.util.List;
 
 public class ArbolBinarioBusqueda {
     private NodoArbol raiz;
-
     public ArbolBinarioBusqueda() {
         this.raiz = null;
     }
@@ -161,7 +160,10 @@ public class ArbolBinarioBusqueda {
     private void generarNodosGraphviz(NodoArbol nodo, StringBuilder dot) {
         if (nodo != null) {
             String nombre = nodo.getCancion().getNombre().replace("\"", "\\\"");
-            dot.append("    \"").append(nodo.hashCode()).append("\" [label=\"").append(nombre).append("\"];\n");
+            double mb = nodo.getCancion().getTamano() / (1024.0 * 1024.0);
+            String tamanoFormateado = String.format("%.2f MB", mb);
+
+            dot.append("    \"").append(nodo.hashCode()).append("\" [label=\"").append(nombre).append("\\n").append(tamanoFormateado).append("\"];\n");
 
             if (nodo.getIzquierdo() != null) {
                 dot.append("    \"").append(nodo.hashCode()).append("\" -> \"").append(nodo.getIzquierdo().hashCode()).append("\";\n");

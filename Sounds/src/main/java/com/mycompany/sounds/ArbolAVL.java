@@ -11,13 +11,11 @@ public class ArbolAVL {
     public ArbolAVL() {
         this.raiz = null;
     }
-
     public List<Cancion> obtenerListaInOrden() {
         List<Cancion> listaExtraida = new ArrayList<>();
         recorridoInOrden(this.raiz, listaExtraida);
         return listaExtraida;
     }
-
     private void recorridoInOrden(NodoArbol actual, List<Cancion> listaExtraida) {
         if (actual != null) {
             recorridoInOrden(actual.getIzquierdo(), listaExtraida);
@@ -25,17 +23,14 @@ public class ArbolAVL {
             recorridoInOrden(actual.getDerecho(), listaExtraida);
         }
     }
-
     private int obtenerAltura(NodoArbol nodo) {
         if (nodo == null) return 0;
         return nodo.getAltura();
     }
-
     private int obtenerFactorEquilibrio(NodoArbol nodo) {
         if (nodo == null) return 0;
         return obtenerAltura(nodo.getIzquierdo()) - obtenerAltura(nodo.getDerecho());
     }
-
     private NodoArbol rotacionDerecha(NodoArbol y) {
         NodoArbol x = y.getIzquierdo();
         NodoArbol T2 = x.getDerecho();
@@ -45,7 +40,6 @@ public class ArbolAVL {
         x.setAltura(Math.max(obtenerAltura(x.getIzquierdo()), obtenerAltura(x.getDerecho())) + 1);
         return x;
     }
-
     private NodoArbol rotacionIzquierda(NodoArbol x) {
         NodoArbol y = x.getDerecho();
         NodoArbol T2 = y.getIzquierdo();
@@ -74,9 +68,7 @@ public class ArbolAVL {
         }
         
         nodo.setAltura(1 + Math.max(obtenerAltura(nodo.getIzquierdo()), obtenerAltura(nodo.getDerecho())));
-       
-        int balance = obtenerFactorEquilibrio(nodo);
-
+               int balance = obtenerFactorEquilibrio(nodo);
         if (balance > 1 && cancion.getNombre().compareToIgnoreCase(nodo.getIzquierdo().getCancion().getNombre()) < 0) {
             return rotacionDerecha(nodo);
         }
@@ -93,23 +85,18 @@ public class ArbolAVL {
         }
         return nodo;
     }   
-
     public void eliminar(String nombre) {
         raiz = eliminarRecursivo(raiz, nombre);
     }
-
     private NodoArbol eliminarRecursivo(NodoArbol nodo, String nombre) {
         if (nodo == null) return nodo;
-
         int comparacion = nombre.compareToIgnoreCase(nodo.getCancion().getNombre());
-
         if (comparacion < 0) {
             nodo.setIzquierdo(eliminarRecursivo(nodo.getIzquierdo(), nombre));
         } else if (comparacion > 0) {
             nodo.setDerecho(eliminarRecursivo(nodo.getDerecho(), nombre));
         } else {
-            // Nodo con uno o ningún hijo
-            if ((nodo.getIzquierdo() == null) || (nodo.getDerecho() == null)) {
+                  if ((nodo.getIzquierdo() == null) || (nodo.getDerecho() == null)) {
                 NodoArbol temp = null;
                 if (temp == nodo.getIzquierdo()) temp = nodo.getDerecho();
                 else temp = nodo.getIzquierdo();
@@ -127,13 +114,9 @@ public class ArbolAVL {
                 nodo.setDerecho(eliminarRecursivo(nodo.getDerecho(), temp.getCancion().getNombre()));
             }
         }
-
         if (nodo == null) return nodo;
-
         nodo.setAltura(Math.max(obtenerAltura(nodo.getIzquierdo()), obtenerAltura(nodo.getDerecho())) + 1);
         int balance = obtenerFactorEquilibrio(nodo);
-
-        // Rotaciones de balanceo tras eliminación
         if (balance > 1 && obtenerFactorEquilibrio(nodo.getIzquierdo()) >= 0) {
             return rotacionDerecha(nodo);
         }
@@ -148,10 +131,8 @@ public class ArbolAVL {
             nodo.setDerecho(rotacionDerecha(nodo.getDerecho()));
             return rotacionIzquierda(nodo);
         }
-
         return nodo;
     }
-
     private NodoArbol encontrarMinimo(NodoArbol nodo) {
         NodoArbol actual = nodo;
         while (actual.getIzquierdo() != null) {
@@ -159,11 +140,9 @@ public class ArbolAVL {
         }
         return actual;
     }
-
     public Cancion buscar(String nombre) {
         return buscarRecursivo(raiz, nombre);
     }
-
     private Cancion buscarRecursivo(NodoArbol nodo, String nombre) {
         if (nodo == null) return null; 
         int comparacion = nombre.compareToIgnoreCase(nodo.getCancion().getNombre());
@@ -171,14 +150,12 @@ public class ArbolAVL {
         if (comparacion < 0) return buscarRecursivo(nodo.getIzquierdo(), nombre);
         return buscarRecursivo(nodo.getDerecho(), nombre);
     }
-
     public List<Cancion> buscarPorFiltro(String textoBusqueda) {
         List<Cancion> resultados = new ArrayList<>();
         if (textoBusqueda == null || textoBusqueda.trim().isEmpty()) return obtenerListaInOrden();
         buscarFiltroRecursivo(raiz, textoBusqueda.toLowerCase().trim(), resultados);
         return resultados;
     }
-
     private void buscarFiltroRecursivo(NodoArbol nodo, String filtro, List<Cancion> resultados) {
         if (nodo != null) {
             buscarFiltroRecursivo(nodo.getIzquierdo(), filtro, resultados);
@@ -190,7 +167,6 @@ public class ArbolAVL {
             buscarFiltroRecursivo(nodo.getDerecho(), filtro, resultados);
         }
     }
-
     public String obtenerRecorridosCompletos() {
         StringBuilder sb = new StringBuilder();
         sb.append("PRE-ORDEN (Raíz, Izq, Der):\n");
@@ -201,7 +177,6 @@ public class ArbolAVL {
         generarPostOrden(raiz, sb);
         return sb.toString();
     }
-
     private void generarPreOrden(NodoArbol nodo, StringBuilder sb) {
         if (nodo != null) {
             sb.append(nodo.getCancion().getNombre()).append(" | ");
@@ -209,7 +184,6 @@ public class ArbolAVL {
             generarPreOrden(nodo.getDerecho(), sb);
         }
     }
-
     private void generarInOrden(NodoArbol nodo, StringBuilder sb) {
         if (nodo != null) {
             generarInOrden(nodo.getIzquierdo(), sb);
@@ -217,7 +191,6 @@ public class ArbolAVL {
             generarInOrden(nodo.getDerecho(), sb);
         }
     }
-
     private void generarPostOrden(NodoArbol nodo, StringBuilder sb) {
         if (nodo != null) {
             generarPostOrden(nodo.getIzquierdo(), sb);
@@ -225,7 +198,6 @@ public class ArbolAVL {
             sb.append(nodo.getCancion().getNombre()).append(" | ");
         }
     }
-
     public void generarGraphviz(String rutaArchivo) {
         StringBuilder dot = new StringBuilder();
         dot.append("digraph ArbolAVL {\n");
@@ -237,18 +209,19 @@ public class ArbolAVL {
             generarNodosGraphviz(raiz, dot);
         }
         dot.append("}\n");
-
         try (PrintWriter writer = new PrintWriter(new FileWriter(rutaArchivo))) {
             writer.print(dot.toString());
         } catch (Exception e) {
             System.out.println("Error al exportar DOT: " + e.getMessage());
         }
     }
-
     private void generarNodosGraphviz(NodoArbol nodo, StringBuilder dot) {
         if (nodo != null) {
             String nombre = nodo.getCancion().getNombre().replace("\"", "\\\"");
-            dot.append("    \"").append(nodo.hashCode()).append("\" [label=\"").append(nombre).append("\"];\n");
+            double mb = nodo.getCancion().getTamano() / (1024.0 * 1024.0);
+            String tamanoFormateado = String.format("%.2f MB", mb);
+
+            dot.append("    \"").append(nodo.hashCode()).append("\" [label=\"").append(nombre).append("\\n").append(tamanoFormateado).append("\"];\n");
 
             if (nodo.getIzquierdo() != null) {
                 dot.append("    \"").append(nodo.hashCode()).append("\" -> \"").append(nodo.getIzquierdo().hashCode()).append("\";\n");

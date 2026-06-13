@@ -7,17 +7,19 @@ import java.util.List;
 
 public class ArbolBinarioBusqueda {
     private NodoArbol raiz;
+    
     public ArbolBinarioBusqueda() {
         this.raiz = null;
     }
+    
     public void insertar(Cancion cancion) {
         raiz = insertarRecursivo(raiz, cancion);
     }
-    private NodoArbol insertarRecursivo(NodoArbol nodoActual, Cancion cancion) {
+        private NodoArbol insertarRecursivo(NodoArbol nodoActual, Cancion cancion) {
         if (nodoActual == null) {
             return new NodoArbol(cancion);
         }
-        int comparacion = cancion.getNombre().compareToIgnoreCase(nodoActual.getCancion().getNombre());
+          int comparacion = cancion.getNombre().compareToIgnoreCase(nodoActual.getCancion().getNombre());
         if (comparacion < 0) {
             nodoActual.setIzquierdo(insertarRecursivo(nodoActual.getIzquierdo(), cancion));
         } else if (comparacion > 0) {
@@ -25,13 +27,14 @@ public class ArbolBinarioBusqueda {
         }
         return nodoActual;
     }
+    
     public void eliminar(String nombre) {
         raiz = eliminarRecursivo(raiz, nombre);
     }
+    
     private NodoArbol eliminarRecursivo(NodoArbol nodo, String nombre) {
-        if (nodo == null) {
-            return null;
-        }
+        if (nodo == null) return null;
+        
         int comparacion = nombre.compareToIgnoreCase(nodo.getCancion().getNombre());
         if (comparacion < 0) {
             nodo.setIzquierdo(eliminarRecursivo(nodo.getIzquierdo(), nombre));
@@ -49,6 +52,7 @@ public class ArbolBinarioBusqueda {
         }
         return nodo;
     }
+    
     private NodoArbol encontrarMinimo(NodoArbol nodo) {
         NodoArbol actual = nodo;
         while (actual.getIzquierdo() != null) {
@@ -56,13 +60,14 @@ public class ArbolBinarioBusqueda {
         }
         return actual;
     }
+    
     public Cancion buscar(String nombre) {
         return buscarRecursivo(raiz, nombre);
     }
+    
     private Cancion buscarRecursivo(NodoArbol nodo, String nombre) {
-        if (nodo == null) {
-            return null; 
-        }
+        if (nodo == null) return null; 
+        
         int comparacion = nombre.compareToIgnoreCase(nodo.getCancion().getNombre());
         if (comparacion == 0) {
             return nodo.getCancion(); 
@@ -72,14 +77,17 @@ public class ArbolBinarioBusqueda {
             return buscarRecursivo(nodo.getDerecho(), nombre);
         }
     }
+    
     public NodoArbol getRaiz(){
         return raiz;
     }
+    
     public List<Cancion> obtenerListaInOrden() {
         List<Cancion> listaExtraida = new ArrayList<>();
         recorridoInOrdenParaLista(this.raiz, listaExtraida);
         return listaExtraida;
     }
+    
     private void recorridoInOrdenParaLista(NodoArbol actual, List<Cancion> listaExtraida) {
         if (actual != null) {
             recorridoInOrdenParaLista(actual.getIzquierdo(), listaExtraida);
@@ -108,6 +116,7 @@ public class ArbolBinarioBusqueda {
             buscarFiltroRecursivo(nodo.getDerecho(), filtro, resultados);
         }
     }
+    
     public String obtenerRecorridosCompletos() {
         StringBuilder sb = new StringBuilder();
         sb.append("PRE-ORDEN (Raíz, Izq, Der):\n");
@@ -126,6 +135,7 @@ public class ArbolBinarioBusqueda {
             generarPreOrden(nodo.getDerecho(), sb);
         }
     }
+    
     private void generarInOrden(NodoArbol nodo, StringBuilder sb) {
         if (nodo != null) {
             generarInOrden(nodo.getIzquierdo(), sb);
@@ -133,6 +143,7 @@ public class ArbolBinarioBusqueda {
             generarInOrden(nodo.getDerecho(), sb);
         }
     }
+    
     private void generarPostOrden(NodoArbol nodo, StringBuilder sb) {
         if (nodo != null) {
             generarPostOrden(nodo.getIzquierdo(), sb);
@@ -140,13 +151,14 @@ public class ArbolBinarioBusqueda {
             sb.append(nodo.getCancion().getNombre()).append(" | ");
         }
     }
+    
     public void generarGraphviz(String rutaArchivo) {
         StringBuilder dot = new StringBuilder();
         dot.append("digraph ArbolABB {\n");
         dot.append("    node [shape=record, style=filled, fillcolor=\"#ff4d4d\", fontcolor=white, fontname=\"Helvetica\"];\n");
         dot.append("    edge [color=\"#b3b3b3\"];\n");
         dot.append("    bgcolor=\"#121212\";\n");
-                if (raiz != null) {
+        if (raiz != null) {
             generarNodosGraphviz(raiz, dot);
         }
         dot.append("}\n");
@@ -157,12 +169,11 @@ public class ArbolBinarioBusqueda {
             System.out.println("Error al exportar DOT: " + e.getMessage());
         }
     }
-    private void generarNodosGraphviz(NodoArbol nodo, StringBuilder dot) {
+      private void generarNodosGraphviz(NodoArbol nodo, StringBuilder dot) {
         if (nodo != null) {
             String nombre = nodo.getCancion().getNombre().replace("\"", "\\\"");
             double mb = nodo.getCancion().getTamano() / (1024.0 * 1024.0);
             String tamanoFormateado = String.format("%.2f MB", mb);
-
             dot.append("    \"").append(nodo.hashCode()).append("\" [label=\"").append(nombre).append("\\n").append(tamanoFormateado).append("\"];\n");
 
             if (nodo.getIzquierdo() != null) {
